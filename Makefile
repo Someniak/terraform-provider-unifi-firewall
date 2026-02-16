@@ -35,6 +35,10 @@ test-plan:
 test-apply:
 	cd examples && terraform apply -auto-approve
 
+# Generate documentation
+generate:
+	go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate -provider-name unifi -provider-dir ./src
+
 clean:
 	rm -f ${BINARY}
 	rm -rf bin/
