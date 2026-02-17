@@ -28,6 +28,8 @@ description: |-
 - `description` (String)
 - `destination` (Block, Optional) (see [below for nested schema](#nestedblock--destination))
 - `ip_protocol_scope` (Block, Optional) (see [below for nested schema](#nestedblock--ip_protocol_scope))
+- `ipsec_filter` (String)
+- `schedule` (Block, Optional) (see [below for nested schema](#nestedblock--schedule))
 - `source` (Block, Optional) (see [below for nested schema](#nestedblock--source))
 
 ### Read-Only
@@ -39,8 +41,11 @@ description: |-
 
 Required:
 
-- `allow_return_traffic` (Boolean)
 - `type` (String)
+
+Optional:
+
+- `allow_return_traffic` (Boolean)
 
 
 <a id="nestedblock--destination"></a>
@@ -57,28 +62,91 @@ Optional:
 <a id="nestedblock--destination--traffic_filter"></a>
 ### Nested Schema for `destination.traffic_filter`
 
+Required:
+
+- `type` (String)
+
 Optional:
 
 - `domain_filter` (Block, Optional) (see [below for nested schema](#nestedblock--destination--traffic_filter--domain_filter))
+- `ip_address_filter` (Block, Optional) (see [below for nested schema](#nestedblock--destination--traffic_filter--ip_address_filter))
+- `mac_address` (String)
+- `mac_address_filter` (Block, Optional) (see [below for nested schema](#nestedblock--destination--traffic_filter--mac_address_filter))
+- `network_filter` (Block, Optional) (see [below for nested schema](#nestedblock--destination--traffic_filter--network_filter))
 - `port_filter` (Block, Optional) (see [below for nested schema](#nestedblock--destination--traffic_filter--port_filter))
-- `type` (String)
 
 <a id="nestedblock--destination--traffic_filter--domain_filter"></a>
 ### Nested Schema for `destination.traffic_filter.domain_filter`
 
-Optional:
+Required:
 
 - `items` (List of String)
+
+
+<a id="nestedblock--destination--traffic_filter--ip_address_filter"></a>
+### Nested Schema for `destination.traffic_filter.ip_address_filter`
+
+Required:
+
+- `items` (List of String)
+- `match_opposite` (Boolean)
+
+Optional:
+
+- `type` (String)
+
+
+<a id="nestedblock--destination--traffic_filter--mac_address_filter"></a>
+### Nested Schema for `destination.traffic_filter.mac_address_filter`
+
+Required:
+
+- `items` (List of String)
+- `match_opposite` (Boolean)
+
+Optional:
+
+- `type` (String)
+
+
+<a id="nestedblock--destination--traffic_filter--network_filter"></a>
+### Nested Schema for `destination.traffic_filter.network_filter`
+
+Required:
+
+- `items` (List of String)
+- `match_opposite` (Boolean)
+
+Optional:
+
+- `type` (String)
 
 
 <a id="nestedblock--destination--traffic_filter--port_filter"></a>
 ### Nested Schema for `destination.traffic_filter.port_filter`
 
-Optional:
+Required:
 
-- `items` (List of String)
 - `match_opposite` (Boolean)
 - `type` (String)
+
+Optional:
+
+- `items` (Block List) (see [below for nested schema](#nestedblock--destination--traffic_filter--port_filter--items))
+
+<a id="nestedblock--destination--traffic_filter--port_filter--items"></a>
+### Nested Schema for `destination.traffic_filter.port_filter.items`
+
+Required:
+
+- `type` (String)
+
+Optional:
+
+- `start` (Number)
+- `stop` (Number)
+- `value` (Number)
+
 
 
 
@@ -97,11 +165,38 @@ Optional:
 <a id="nestedblock--ip_protocol_scope--protocol_filter"></a>
 ### Nested Schema for `ip_protocol_scope.protocol_filter`
 
-Optional:
+Required:
 
 - `match_opposite` (Boolean)
+
+Optional:
+
 - `protocol` (String)
 - `type` (String)
+
+
+
+<a id="nestedblock--schedule"></a>
+### Nested Schema for `schedule`
+
+Required:
+
+- `mode` (String)
+
+Optional:
+
+- `days_of_week` (Set of String)
+- `start` (String)
+- `stop` (String)
+- `time_range` (Block, Optional) (see [below for nested schema](#nestedblock--schedule--time_range))
+
+<a id="nestedblock--schedule--time_range"></a>
+### Nested Schema for `schedule.time_range`
+
+Required:
+
+- `start` (String)
+- `stop` (String)
 
 
 
@@ -119,16 +214,78 @@ Optional:
 <a id="nestedblock--source--traffic_filter"></a>
 ### Nested Schema for `source.traffic_filter`
 
+Required:
+
+- `type` (String)
+
 Optional:
 
+- `ip_address_filter` (Block, Optional) (see [below for nested schema](#nestedblock--source--traffic_filter--ip_address_filter))
+- `mac_address` (String)
+- `mac_address_filter` (Block, Optional) (see [below for nested schema](#nestedblock--source--traffic_filter--mac_address_filter))
+- `network_filter` (Block, Optional) (see [below for nested schema](#nestedblock--source--traffic_filter--network_filter))
 - `port_filter` (Block, Optional) (see [below for nested schema](#nestedblock--source--traffic_filter--port_filter))
+
+<a id="nestedblock--source--traffic_filter--ip_address_filter"></a>
+### Nested Schema for `source.traffic_filter.ip_address_filter`
+
+Required:
+
+- `items` (List of String)
+- `match_opposite` (Boolean)
+
+Optional:
+
 - `type` (String)
+
+
+<a id="nestedblock--source--traffic_filter--mac_address_filter"></a>
+### Nested Schema for `source.traffic_filter.mac_address_filter`
+
+Required:
+
+- `items` (List of String)
+- `match_opposite` (Boolean)
+
+Optional:
+
+- `type` (String)
+
+
+<a id="nestedblock--source--traffic_filter--network_filter"></a>
+### Nested Schema for `source.traffic_filter.network_filter`
+
+Required:
+
+- `items` (List of String)
+- `match_opposite` (Boolean)
+
+Optional:
+
+- `type` (String)
+
 
 <a id="nestedblock--source--traffic_filter--port_filter"></a>
 ### Nested Schema for `source.traffic_filter.port_filter`
 
-Optional:
+Required:
 
-- `items` (List of String)
 - `match_opposite` (Boolean)
 - `type` (String)
+
+Optional:
+
+- `items` (Block List) (see [below for nested schema](#nestedblock--source--traffic_filter--port_filter--items))
+
+<a id="nestedblock--source--traffic_filter--port_filter--items"></a>
+### Nested Schema for `source.traffic_filter.port_filter.items`
+
+Required:
+
+- `type` (String)
+
+Optional:
+
+- `start` (Number)
+- `stop` (Number)
+- `value` (Number)

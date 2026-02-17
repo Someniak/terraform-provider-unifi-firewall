@@ -4,7 +4,7 @@ data "unifi_firewall_zone" "default" {
 }
 
 data "unifi_firewall_zone" "internet" {
-  name = "Internet"
+  name = "External"
 }
 
 data "unifi_firewall_zone" "guest" {

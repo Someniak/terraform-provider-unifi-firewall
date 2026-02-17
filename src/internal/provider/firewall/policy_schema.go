@@ -86,7 +86,8 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 						},
 					},
 					"allow_return_traffic": schema.BoolAttribute{
-						Required: true,
+						Optional: true,
+						Computed: true,
 					},
 				},
 			},
