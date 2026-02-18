@@ -192,12 +192,21 @@ Optional:
 
 Optional:
 
+- `domain_filter` (Block, Optional) (see [below for nested schema](#nestedblock--source--traffic_filter--domain_filter))
 - `ip_address_filter` (Block, Optional) (see [below for nested schema](#nestedblock--source--traffic_filter--ip_address_filter))
 - `mac_address` (String)
 - `mac_address_filter` (Block, Optional) (see [below for nested schema](#nestedblock--source--traffic_filter--mac_address_filter))
 - `network_filter` (Block, Optional) (see [below for nested schema](#nestedblock--source--traffic_filter--network_filter))
 - `port_filter` (Block, Optional) (see [below for nested schema](#nestedblock--source--traffic_filter--port_filter))
 - `type` (String)
+
+<a id="nestedblock--source--traffic_filter--domain_filter"></a>
+### Nested Schema for `source.traffic_filter.domain_filter`
+
+Optional:
+
+- `items` (List of String)
+
 
 <a id="nestedblock--source--traffic_filter--ip_address_filter"></a>
 ### Nested Schema for `source.traffic_filter.ip_address_filter`

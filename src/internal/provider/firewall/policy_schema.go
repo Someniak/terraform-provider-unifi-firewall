@@ -180,6 +180,14 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 									},
 								},
 							},
+							"domain_filter": schema.SingleNestedBlock{
+								Attributes: map[string]schema.Attribute{
+									"items": schema.ListAttribute{
+										ElementType: types.StringType,
+										Optional:    true, // Workaround for validation
+									},
+								},
+							},
 						},
 					},
 				},
