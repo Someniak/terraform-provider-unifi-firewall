@@ -17,7 +17,7 @@ func NewFirewallPolicyResource() resource.Resource {
 }
 
 func (r *FirewallPolicyResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_firewall_policy"
+	resp.TypeName = req.ProviderTypeName + "_fw"
 }
 
 func (r *FirewallPolicyResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {

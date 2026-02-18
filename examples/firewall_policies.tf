@@ -1,6 +1,6 @@
 # 1. Basic Allow Rule
 # Allows traffic from Default zone to Internet
-resource "unifi_firewall_policy" "allow_internet" {
+resource "unifi_fw" "allow_internet" {
   name    = "Allow Internet Access"
   enabled = true
   action {
@@ -20,7 +20,7 @@ resource "unifi_firewall_policy" "allow_internet" {
 
 # 2. Block Rule with Scheduling
 # Blocks Guest access to IoT between 8am and 5pm on weekdays
-resource "unifi_firewall_policy" "block_guest_iot_workhours" {
+resource "unifi_fw" "block_guest_iot_workhours" {
   name    = "Block Guest to IoT (Work Hours)"
   enabled = true
   action {
@@ -48,7 +48,7 @@ resource "unifi_firewall_policy" "block_guest_iot_workhours" {
 
 # 3. Port Filtering (Specific Ports)
 # Allows SSH and HTTP from Default to IoT
-resource "unifi_firewall_policy" "allow_admin_access" {
+resource "unifi_fw" "allow_admin_access" {
   name    = "Allow Admin Access"
   enabled = true
   action {
@@ -83,7 +83,7 @@ resource "unifi_firewall_policy" "allow_admin_access" {
 
 # 4. Port Filtering (Ranges)
 # Allows a range of ports for specific application
-resource "unifi_firewall_policy" "allow_app_ports" {
+resource "unifi_fw" "allow_app_ports" {
   name    = "Allow App Ports"
   enabled = true
   action {
@@ -115,7 +115,7 @@ resource "unifi_firewall_policy" "allow_app_ports" {
 
 # 5. Domain Filtering (Block Social Media)
 # Blocks access to specific domains
-resource "unifi_firewall_policy" "block_social_media" {
+resource "unifi_fw" "block_social_media" {
   name    = "Block Social Media"
   enabled = true
   action {
@@ -141,7 +141,7 @@ resource "unifi_firewall_policy" "block_social_media" {
 
 # 6. Specific IP Filtering
 # Block specific IP from accessing internet
-resource "unifi_firewall_policy" "block_bad_ip" {
+resource "unifi_fw" "block_bad_ip" {
   name    = "Block Bad IP"
   enabled = true
   action {
@@ -168,7 +168,7 @@ resource "unifi_firewall_policy" "block_bad_ip" {
 }
 
 # 7. Protocol Filtering (Block ICMP/Ping)
-resource "unifi_firewall_policy" "block_ping" {
+resource "unifi_fw" "block_ping" {
   name    = "Block Ping"
   enabled = true
   action {
@@ -192,7 +192,7 @@ resource "unifi_firewall_policy" "block_ping" {
 }
 
 # 8. MAC Address Filtering
-resource "unifi_firewall_policy" "block_specific_mac" {
+resource "unifi_fw" "block_specific_mac" {
   name    = "Block Device by MAC"
   enabled = true
   action {
@@ -220,7 +220,7 @@ resource "unifi_firewall_policy" "block_specific_mac" {
 
 # 9. Connection State Filtering
 # Allow established/related traffic
-resource "unifi_firewall_policy" "allow_established" {
+resource "unifi_fw" "allow_established" {
   name    = "Allow Established"
   enabled = true
   action {
@@ -241,7 +241,7 @@ resource "unifi_firewall_policy" "allow_established" {
 
 # 10. Combined Filter: Source IP + Destination IP
 # Blocks traffic from a specific Source IP to a specific Destination IP
-resource "unifi_firewall_policy" "block_specific_ip_pair" {
+resource "unifi_fw" "block_specific_ip_pair" {
   name    = "Block IP Pair"
   enabled = true
   action {
@@ -278,7 +278,7 @@ resource "unifi_firewall_policy" "block_specific_ip_pair" {
 # 11. Combined Filter: Source IP + Source Port
 # Blocks traffic from a specific IP originating from specific ports
 # Note: Combining multiple filters in one traffic_filter block
-resource "unifi_firewall_policy" "block_specific_source_port" {
+resource "unifi_fw" "block_specific_source_port" {
   name    = "Block Specific Source"
   enabled = true
   action {
@@ -314,7 +314,7 @@ resource "unifi_firewall_policy" "block_specific_source_port" {
 
 # 12. Complex Rule: Source Network + Dest Port + Dest IP
 # Limits a whole network to accessing a specific server on a specific port
-resource "unifi_firewall_policy" "limit_iot_server_access" {
+resource "unifi_fw" "limit_iot_server_access" {
   name    = "Limit IoT Server Access"
   enabled = true
   action {

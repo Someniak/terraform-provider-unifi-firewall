@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -285,4 +286,95 @@ func (c *Client) ListNetworks() ([]Network, error) {
 	}
 
 	return response.Data, nil
+}
+
+// DNS Policies
+type DNSPolicy struct {
+	ID          string `json:"id,omitempty"`
+	Type        string `json:"type"` // e.g., "A_RECORD", "AAAA_RECORD", "CNAME_RECORD", "MX_RECORD", "TXT_RECORD", "SRV_RECORD", "FORWARD_DOMAIN"
+	Domain      string `json:"domain"`
+	Enabled     bool   `json:"enabled"`
+	IPv4Address string `json:"ipv4Address,omitempty"`
+	IPv6Address string `json:"ipv6Address,omitempty"`
+	CNAME       string `json:"cname,omitempty"`
+	MXPriority  int    `json:"mxPriority,omitempty"`
+	MXHostname  string `json:"mxHostname,omitempty"`
+	TXTText     string `json:"txtText,omitempty"`
+	SRVPriority int    `json:"srvPriority,omitempty"`
+	SRVWeight   int    `json:"srvWeight,omitempty"`
+	SRVPort     int    `json:"srvPort,omitempty"`
+	Target      string `json:"target,omitempty"` // For FORWARD_DOMAIN
+	TTL         int    `json:"ttlSeconds"`
+}
+
+func (c *Client) CreateDNSPolicy(policy DNSPolicy) (*DNSPolicy, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies", c.BaseURL, c.SiteID)
+
+	// Debug logging to specific file
+	debugFile := "/tmp/terraform-unifi-debug.log"
+	f, _ := os.OpenFile(debugFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if f != nil {
+		defer f.Close()
+		f.WriteString(fmt.Sprintf("DEBUG: CreateDNSPolicy URL: %s\n", url))
+		f.WriteString(fmt.Sprintf("DEBUG: Client SiteID: '%s'\n", c.SiteID))
+		payload, _ := json.Marshal(policy)
+		f.WriteString(fmt.Sprintf("DEBUG: Payload: %s\n", string(payload)))
+	}
+
+	payload, _ := json.Marshal(policy)
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result DNSPolicy
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) GetDNSPolicy(policyId string) (*DNSPolicy, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, c.SiteID, policyId)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result DNSPolicy
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) UpdateDNSPolicy(policyId string, policy DNSPolicy) (*DNSPolicy, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, c.SiteID, policyId)
+	payload, _ := json.Marshal(policy)
+	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result DNSPolicy
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) DeleteDNSPolicy(policyId string) error {
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, c.SiteID, policyId)
+	req, _ := http.NewRequest(http.MethodDelete, url, nil)
+	_, err := c.doRequest(req)
+	return err
 }
