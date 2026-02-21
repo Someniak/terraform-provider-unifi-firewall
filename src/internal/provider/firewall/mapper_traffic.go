@@ -2,7 +2,7 @@ package firewall
 
 import (
 	"context"
-
+	"sort"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -81,12 +81,12 @@ func mapTrafficFilterToAPI(ctx context.Context, tf *TrafficFilterModel) *unifi.T
 	}
 
 	if tf.DomainFilter != nil {
+		var items []string
+		tf.DomainFilter.Items.ElementsAs(ctx, &items, false)
 		apiTF.DomainFilter = &unifi.DomainFilter{
 			Type: "DOMAINS", // Assuming fixed type for now as per previous code
 		}
-		for _, item := range tf.DomainFilter.Items {
-			apiTF.DomainFilter.Domains = append(apiTF.DomainFilter.Domains, item.ValueString())
-		}
+		apiTF.DomainFilter.Domains = items
 	}
 
 	return apiTF
@@ -111,7 +111,7 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 			Type:          types.StringValue("MAC_ADDRESSES"),
 			MatchOpposite: types.BoolValue(false),
 		}
-		tf.MACAddressFilter.Items, _ = types.ListValueFrom(ctx, types.StringType, macFilter.MACAddresses)
+		tf.MACAddressFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, macFilter.MACAddresses)
 	} else if listMacs, ok := apiTF.MACAddressFilter.(map[string]interface{}); ok {
 		// Fallback for raw map if needed (e.g. from generic JSON unmarshal)
 		if macs, ok := listMacs["macAddresses"].([]interface{}); ok {
@@ -123,7 +123,7 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 				Type:          types.StringValue("MAC_ADDRESSES"),
 				MatchOpposite: types.BoolValue(false),
 			}
-			tf.MACAddressFilter.Items, _ = types.ListValueFrom(ctx, types.StringType, ms)
+			tf.MACAddressFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, ms)
 		}
 	}
 
@@ -144,6 +144,18 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 			}
 			items = append(items, pi)
 		}
+
+		// Sort items to avoid "ghost" changes if the API Returns them in a different order
+		sort.Slice(items, func(i, j int) bool {
+			if items[i].Value.ValueInt32() != items[j].Value.ValueInt32() {
+				return items[i].Value.ValueInt32() < items[j].Value.ValueInt32()
+			}
+			if items[i].Start.ValueInt32() != items[j].Start.ValueInt32() {
+				return items[i].Start.ValueInt32() < items[j].Start.ValueInt32()
+			}
+			return items[i].Stop.ValueInt32() < items[j].Stop.ValueInt32()
+		})
+
 		tf.PortFilter = &PortFilterModel{
 			Type:          types.StringValue(apiTF.PortFilter.Type),
 			MatchOpposite: types.BoolValue(apiTF.PortFilter.MatchOpposite),
@@ -160,7 +172,7 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 		for _, item := range apiTF.IPAddressFilter.Items {
 			ms = append(ms, item.Value)
 		}
-		tf.IPAddressFilter.Items, _ = types.ListValueFrom(ctx, types.StringType, ms)
+		tf.IPAddressFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, ms)
 	}
 
 	if apiTF.NetworkFilter != nil {
@@ -168,14 +180,12 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 			Type:          types.StringValue("NETWORK"),
 			MatchOpposite: types.BoolValue(apiTF.NetworkFilter.MatchOpposite),
 		}
-		tf.NetworkFilter.Items, _ = types.ListValueFrom(ctx, types.StringType, apiTF.NetworkFilter.NetworkIDs)
+		tf.NetworkFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, apiTF.NetworkFilter.NetworkIDs)
 	}
 
 	if apiTF.DomainFilter != nil {
 		tf.DomainFilter = &DomainFilterModel{}
-		for _, d := range apiTF.DomainFilter.Domains {
-			tf.DomainFilter.Items = append(tf.DomainFilter.Items, types.StringValue(d))
-		}
+		tf.DomainFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, apiTF.DomainFilter.Domains)
 	}
 
 	return tf

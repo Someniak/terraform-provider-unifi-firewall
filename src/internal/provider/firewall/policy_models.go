@@ -55,19 +55,19 @@ type TrafficFilterModel struct {
 type IPAddressFilterModel struct {
 	Type          types.String `tfsdk:"type"`
 	MatchOpposite types.Bool   `tfsdk:"match_opposite"`
-	Items         types.List   `tfsdk:"items"`
+	Items         types.Set    `tfsdk:"items"`
 }
 
 type MACAddressFilterModel struct {
 	Type          types.String `tfsdk:"type"`
 	MatchOpposite types.Bool   `tfsdk:"match_opposite"`
-	Items         types.List   `tfsdk:"items"`
+	Items         types.Set    `tfsdk:"items"`
 }
 
 type NetworkFilterModel struct {
 	Type          types.String `tfsdk:"type"`
 	MatchOpposite types.Bool   `tfsdk:"match_opposite"`
-	Items         types.List   `tfsdk:"items"`
+	Items         types.Set    `tfsdk:"items"`
 }
 
 type PortFilterModel struct {
@@ -84,7 +84,7 @@ type PortItemModel struct {
 }
 
 type DomainFilterModel struct {
-	Items []types.String `tfsdk:"items"`
+	Items types.Set `tfsdk:"items"`
 }
 
 type IPProtocolScopeModel struct {

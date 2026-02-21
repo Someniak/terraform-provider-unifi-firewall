@@ -77,7 +77,7 @@ Optional:
 
 Optional:
 
-- `items` (List of String)
+- `items` (Set of String)
 
 
 <a id="nestedblock--destination--traffic_filter--ip_address_filter"></a>
@@ -85,7 +85,7 @@ Optional:
 
 Optional:
 
-- `items` (List of String)
+- `items` (Set of String)
 - `match_opposite` (Boolean)
 - `type` (String)
 
@@ -95,7 +95,7 @@ Optional:
 
 Optional:
 
-- `items` (List of String)
+- `items` (Set of String)
 - `match_opposite` (Boolean)
 - `type` (String)
 
@@ -105,7 +105,7 @@ Optional:
 
 Optional:
 
-- `items` (List of String)
+- `items` (Set of String)
 - `match_opposite` (Boolean)
 - `type` (String)
 
@@ -205,7 +205,7 @@ Optional:
 
 Optional:
 
-- `items` (List of String)
+- `items` (Set of String)
 
 
 <a id="nestedblock--source--traffic_filter--ip_address_filter"></a>
@@ -213,7 +213,7 @@ Optional:
 
 Optional:
 
-- `items` (List of String)
+- `items` (Set of String)
 - `match_opposite` (Boolean)
 - `type` (String)
 
@@ -223,7 +223,7 @@ Optional:
 
 Optional:
 
-- `items` (List of String)
+- `items` (Set of String)
 - `match_opposite` (Boolean)
 - `type` (String)
 
@@ -233,7 +233,7 @@ Optional:
 
 Optional:
 
-- `items` (List of String)
+- `items` (Set of String)
 - `match_opposite` (Boolean)
 - `type` (String)
 

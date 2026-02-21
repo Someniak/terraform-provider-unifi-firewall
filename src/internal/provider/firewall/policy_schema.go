@@ -146,7 +146,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 									"match_opposite": schema.BoolAttribute{
 										Optional: true, // Workaround for validation
 									},
-									"items": schema.ListAttribute{
+									"items": schema.SetAttribute{
 										ElementType: types.StringType,
 										Optional:    true, // Workaround for validation
 									},
@@ -160,7 +160,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 									"match_opposite": schema.BoolAttribute{
 										Optional: true, // Workaround for validation
 									},
-									"items": schema.ListAttribute{
+									"items": schema.SetAttribute{
 										ElementType: types.StringType,
 										Optional:    true, // Workaround for validation
 									},
@@ -174,7 +174,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 									"match_opposite": schema.BoolAttribute{
 										Optional: true, // Workaround for validation
 									},
-									"items": schema.ListAttribute{
+									"items": schema.SetAttribute{
 										ElementType: types.StringType,
 										Optional:    true, // Workaround for validation
 									},
@@ -182,7 +182,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 							},
 							"domain_filter": schema.SingleNestedBlock{
 								Attributes: map[string]schema.Attribute{
-									"items": schema.ListAttribute{
+									"items": schema.SetAttribute{
 										ElementType: types.StringType,
 										Optional:    true, // Workaround for validation
 									},
@@ -247,7 +247,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 									"match_opposite": schema.BoolAttribute{
 										Optional: true, // Workaround for validation
 									},
-									"items": schema.ListAttribute{
+									"items": schema.SetAttribute{
 										ElementType: types.StringType,
 										Optional:    true, // Workaround for validation
 									},
@@ -261,7 +261,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 									"match_opposite": schema.BoolAttribute{
 										Optional: true, // Workaround for validation
 									},
-									"items": schema.ListAttribute{
+									"items": schema.SetAttribute{
 										ElementType: types.StringType,
 										Optional:    true, // Workaround for validation
 									},
@@ -275,7 +275,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 									"match_opposite": schema.BoolAttribute{
 										Optional: true, // Workaround for validation
 									},
-									"items": schema.ListAttribute{
+									"items": schema.SetAttribute{
 										ElementType: types.StringType,
 										Optional:    true, // Workaround for validation
 									},
@@ -283,7 +283,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 							},
 							"domain_filter": schema.SingleNestedBlock{
 								Attributes: map[string]schema.Attribute{
-									"items": schema.ListAttribute{
+									"items": schema.SetAttribute{
 										ElementType: types.StringType,
 										Optional:    true, // Workaround for validation
 									},
