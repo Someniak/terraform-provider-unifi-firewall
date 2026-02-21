@@ -118,7 +118,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 									},
 								},
 								Blocks: map[string]schema.Block{
-									"items": schema.ListNestedBlock{
+									"items": schema.SetNestedBlock{
 										NestedObject: schema.NestedBlockObject{
 											Attributes: map[string]schema.Attribute{
 												"type": schema.StringAttribute{
@@ -219,7 +219,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 									},
 								},
 								Blocks: map[string]schema.Block{
-									"items": schema.ListNestedBlock{
+									"items": schema.SetNestedBlock{
 										NestedObject: schema.NestedBlockObject{
 											Attributes: map[string]schema.Attribute{
 												"type": schema.StringAttribute{
