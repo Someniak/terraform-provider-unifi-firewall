@@ -115,7 +115,7 @@ Optional:
 
 Optional:
 
-- `items` (Block List) (see [below for nested schema](#nestedblock--destination--traffic_filter--port_filter--items))
+- `items` (Block Set) (see [below for nested schema](#nestedblock--destination--traffic_filter--port_filter--items))
 - `match_opposite` (Boolean)
 - `type` (String)
 
@@ -243,7 +243,7 @@ Optional:
 
 Optional:
 
-- `items` (Block List) (see [below for nested schema](#nestedblock--source--traffic_filter--port_filter--items))
+- `items` (Block Set) (see [below for nested schema](#nestedblock--source--traffic_filter--port_filter--items))
 - `match_opposite` (Boolean)
 - `type` (String)
 
