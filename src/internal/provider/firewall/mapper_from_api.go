@@ -2,6 +2,7 @@ package firewall
 
 import (
 	"context"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/someniak/terraform-provider-unifi-firewall/src/internal/unifi"
@@ -16,13 +17,17 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 	} else {
 		data.Description = types.StringNull()
 	}
+	actionType := p.Action.Type
 	data.Action = &ActionModel{
-		Type: types.StringValue(p.Action.Type),
+		Type: types.StringValue(actionType),
 	}
 	if p.Action.AllowReturnTraffic != nil {
 		data.Action.AllowReturnTraffic = types.BoolValue(*p.Action.AllowReturnTraffic)
 	} else {
-		data.Action.AllowReturnTraffic = types.BoolNull()
+		// Default to true for ALLOW, false otherwise (BLOCK/REJECT)
+		// Use case-insensitive comparison for stability
+		isAllow := strings.EqualFold(actionType, "ALLOW")
+		data.Action.AllowReturnTraffic = types.BoolValue(isAllow)
 	}
 	data.Source = &SourceDestModel{
 		ZoneID: types.StringValue(p.Source.ZoneID),

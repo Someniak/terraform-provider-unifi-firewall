@@ -11,7 +11,7 @@ terraform {
   required_providers {
     unifi = {
       source  = "someniak/unifi-firewall"
-      version = "0.0.3"
+      version = "0.3.2"
     }
   }
 }

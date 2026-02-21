@@ -54,7 +54,7 @@ func (r *FirewallPolicyResource) ModifyPlan(ctx context.Context, req resource.Mo
 		if plan.Action.AllowReturnTraffic.IsUnknown() || plan.Action.AllowReturnTraffic.IsNull() {
 			actionType := plan.Action.Type.ValueString()
 			// Default to true for ALLOW, false for BLOCK/REJECT
-			defaultValue := actionType == "ALLOW"
+			defaultValue := (actionType == "ALLOW" || actionType == "allow")
 
 			// Update the plan
 			plan.Action.AllowReturnTraffic = types.BoolValue(defaultValue)

@@ -28,7 +28,8 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 
 	if data.Action != nil && !data.Action.AllowReturnTraffic.IsNull() && !data.Action.AllowReturnTraffic.IsUnknown() {
 		// UniFi API currently only supports allowReturnTraffic for ALLOW rules.
-		if data.Action.Type.ValueString() == "ALLOW" {
+		actionType := data.Action.Type.ValueString()
+		if actionType == "ALLOW" || actionType == "allow" {
 			val := data.Action.AllowReturnTraffic.ValueBool()
 			policy.Action.AllowReturnTraffic = &val
 		}
