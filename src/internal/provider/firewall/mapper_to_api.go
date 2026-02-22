@@ -110,7 +110,10 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 			MatchOpposite: data.IPProtocolScope.ProtocolFilter.MatchOpposite.ValueBool(),
 		}
 		if !data.IPProtocolScope.ProtocolFilter.Protocol.IsNull() {
-			policy.IPProtocolScope.ProtocolFilter.Protocol = map[string]interface{}{"name": data.IPProtocolScope.ProtocolFilter.Protocol.ValueString()}
+			policy.IPProtocolScope.ProtocolFilter.Protocol = mapProtocolToAPI(
+				data.IPProtocolScope.ProtocolFilter.Type.ValueString(),
+				data.IPProtocolScope.ProtocolFilter.Protocol.ValueString(),
+			)
 		}
 	}
 
