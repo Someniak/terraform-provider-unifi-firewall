@@ -1,6 +1,6 @@
 # Fetch common firewall zones
 data "unifi_firewall_zone" "default" {
-  name = "Default"
+  name = "Internal"
 }
 
 data "unifi_firewall_zone" "internet" {
@@ -8,7 +8,7 @@ data "unifi_firewall_zone" "internet" {
 }
 
 data "unifi_firewall_zone" "guest" {
-  name = "Guest"
+  name = "Hotspot"
 }
 
 data "unifi_firewall_zone" "iot" {
