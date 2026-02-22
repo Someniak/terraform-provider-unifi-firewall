@@ -10,8 +10,8 @@ func TestMapProtocolToAPI(t *testing.T) {
 		key        string
 		want       string
 	}{
-		{name: "named protocol", filterType: "NAMED_PROTOCOL", protocol: "TCP", key: "name", want: "tcp"},
-		{name: "legacy protocol alias", filterType: "PROTOCOL", protocol: "UDP", key: "name", want: "udp"},
+		{name: "named protocol", filterType: "NAMED_PROTOCOL", protocol: "TCP", key: "name", want: "TCP"},
+		{name: "legacy protocol alias", filterType: "PROTOCOL", protocol: "UDP", key: "name", want: "UDP"},
 		{name: "preset", filterType: "PRESET", protocol: "tcp_udp", key: "preset", want: "TCP_UDP"},
 		{name: "protocol number", filterType: "PROTOCOL_NUMBER", protocol: "17", key: "number", want: "17"},
 	}
@@ -32,8 +32,8 @@ func TestMapProtocolFromAPI(t *testing.T) {
 		in   map[string]interface{}
 		want string
 	}{
-		{name: "name", in: map[string]interface{}{"name": "tcp"}, want: "tcp"},
-		{name: "preset", in: map[string]interface{}{"preset": "TCP_UDP"}, want: "TCP_UDP"},
+		{name: "name", in: map[string]interface{}{"name": "TCP"}, want: "tcp"},
+		{name: "preset", in: map[string]interface{}{"preset": "TCP_UDP"}, want: "tcp_udp"},
 		{name: "number string", in: map[string]interface{}{"number": "17"}, want: "17"},
 		{name: "number numeric", in: map[string]interface{}{"number": float64(17)}, want: "17"},
 	}

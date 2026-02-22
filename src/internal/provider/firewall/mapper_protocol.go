@@ -16,7 +16,8 @@ func mapProtocolToAPI(filterType, protocol string) map[string]interface{} {
 	case "PROTOCOL_NUMBER":
 		return map[string]interface{}{"number": protocol}
 	default:
-		return map[string]interface{}{"name": strings.ToLower(protocol)}
+		// Unifi API requires uppercase protocol names like "UDP" and "TCP"
+		return map[string]interface{}{"name": strings.ToUpper(protocol)}
 	}
 }
 
@@ -35,7 +36,7 @@ func mapProtocolFromAPI(protocol map[string]interface{}) string {
 
 	for _, key := range []string{"name", "preset", "number", "value"} {
 		if value, ok := protocol[key].(string); ok && value != "" {
-			return value
+			return strings.ToLower(value)
 		}
 	}
 

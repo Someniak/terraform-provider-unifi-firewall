@@ -106,7 +106,7 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 
 	if data.IPProtocolScope != nil && data.IPProtocolScope.ProtocolFilter != nil {
 		policy.IPProtocolScope.ProtocolFilter = &unifi.ProtocolFilter{
-			Type:          data.IPProtocolScope.ProtocolFilter.Type.ValueString(),
+			Type:          normalizeProtocolFilterType(data.IPProtocolScope.ProtocolFilter.Type.ValueString()),
 			MatchOpposite: data.IPProtocolScope.ProtocolFilter.MatchOpposite.ValueBool(),
 		}
 		if !data.IPProtocolScope.ProtocolFilter.Protocol.IsNull() {

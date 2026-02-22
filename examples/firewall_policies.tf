@@ -113,6 +113,46 @@ resource "unifi_fw" "allow_app_ports" {
   logging_enabled = false
 }
 
+# 4b. Protocol and Port Filtering (UDP Ports)
+# Allows specific UDP ports (e.g., DNS, NTP) from Default to Internet
+resource "unifi_fw" "allow_udp_services" {
+  name    = "Allow UDP Services"
+  enabled = true
+  action {
+    type                 = "ALLOW"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.default.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.internet.id
+    traffic_filter {
+      type = "PORT"
+      port_filter {
+        type           = "PORTS"
+        match_opposite = false
+        items {
+          type  = "PORT_NUMBER"
+          value = 53 # DNS
+        }
+        items {
+          type  = "PORT_NUMBER"
+          value = 123 # NTP
+        }
+      }
+    }
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+    protocol_filter {
+      type           = "PROTOCOL"
+      match_opposite = false
+      protocol       = "udp"
+    }
+  }
+  logging_enabled = false
+}
+
 # 5. Domain Filtering (Block Social Media)
 # Blocks access to specific domains
 resource "unifi_fw" "block_social_media" {
