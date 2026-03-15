@@ -7,9 +7,24 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
+	"sync"
 	"time"
 )
+
+// cacheEntry holds a cached API response with an expiration time.
+type cacheEntry[T any] struct {
+	data      T
+	expiresAt time.Time
+}
+
+func (e *cacheEntry[T]) valid() bool {
+	return time.Now().Before(e.expiresAt)
+}
+
+// cacheTTL controls how long list responses are cached. Within a single
+// terraform plan/apply cycle this avoids redundant list calls when multiple
+// data sources or resource reads need the same data.
+const cacheTTL = 2 * time.Minute
 
 type Client struct {
 	BaseURL    string
@@ -17,6 +32,12 @@ type Client struct {
 	SiteID     string
 	Insecure   bool
 	HTTPClient *http.Client
+
+	mu             sync.Mutex
+	zoneCache      *cacheEntry[[]FirewallZone]
+	networkCache   *cacheEntry[[]Network]
+	fwPolicyCache  *cacheEntry[[]FirewallPolicy]
+	dnsPolicyCache *cacheEntry[[]DNSPolicy]
 }
 
 func NewClient(baseUrl, apiKey, siteId string, insecure bool) *Client {
@@ -33,6 +54,31 @@ func NewClient(baseUrl, apiKey, siteId string, insecure bool) *Client {
 			Transport: tr,
 		},
 	}
+}
+
+// InvalidateCache clears all cached data. Call after any mutation
+// (create/update/delete) to ensure subsequent reads see fresh data.
+func (c *Client) InvalidateCache() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.zoneCache = nil
+	c.networkCache = nil
+	c.fwPolicyCache = nil
+	c.dnsPolicyCache = nil
+}
+
+// invalidateFWPolicyCache clears just the firewall policy cache.
+func (c *Client) invalidateFWPolicyCache() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.fwPolicyCache = nil
+}
+
+// invalidateDNSPolicyCache clears the DNS policy cache.
+func (c *Client) invalidateDNSPolicyCache() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.dnsPolicyCache = nil
 }
 
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
@@ -94,6 +140,14 @@ type FirewallZone struct {
 }
 
 func (c *Client) ListFirewallZones() ([]FirewallZone, error) {
+	c.mu.Lock()
+	if c.zoneCache != nil && c.zoneCache.valid() {
+		zones := c.zoneCache.data
+		c.mu.Unlock()
+		return zones, nil
+	}
+	c.mu.Unlock()
+
 	url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones", c.BaseURL, c.SiteID)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
@@ -108,6 +162,10 @@ func (c *Client) ListFirewallZones() ([]FirewallZone, error) {
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal firewall zones: %w. response body: %s", err, string(body))
 	}
+
+	c.mu.Lock()
+	c.zoneCache = &cacheEntry[[]FirewallZone]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+	c.mu.Unlock()
 
 	return response.Data, nil
 }
@@ -201,6 +259,39 @@ type FirewallSchedule struct {
 	TimeFilter any    `json:"timeFilter"`
 }
 
+// ListFirewallPolicies fetches all firewall policies, using a short-lived cache
+// so that multiple resource reads within the same plan/apply share one API call.
+func (c *Client) ListFirewallPolicies() ([]FirewallPolicy, error) {
+	c.mu.Lock()
+	if c.fwPolicyCache != nil && c.fwPolicyCache.valid() {
+		policies := c.fwPolicyCache.data
+		c.mu.Unlock()
+		return policies, nil
+	}
+	c.mu.Unlock()
+
+	url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies", c.BaseURL, c.SiteID)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var response struct {
+		Data []FirewallPolicy `json:"data"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal firewall policies: %w. response body: %s", err, string(body))
+	}
+
+	c.mu.Lock()
+	c.fwPolicyCache = &cacheEntry[[]FirewallPolicy]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+	c.mu.Unlock()
+
+	return response.Data, nil
+}
+
 func (c *Client) CreateFirewallPolicy(policy FirewallPolicy) (*FirewallPolicy, error) {
 	url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies", c.BaseURL, c.SiteID)
 	payload, _ := json.Marshal(policy)
@@ -216,10 +307,24 @@ func (c *Client) CreateFirewallPolicy(policy FirewallPolicy) (*FirewallPolicy, e
 		return nil, err
 	}
 
+	c.invalidateFWPolicyCache()
 	return &result, nil
 }
 
+// GetFirewallPolicy retrieves a single policy. It first checks the cached list
+// of all policies (populated by ListFirewallPolicies) to avoid an extra API call.
+// Falls back to a direct GET if the policy is not in cache.
 func (c *Client) GetFirewallPolicy(policyId string) (*FirewallPolicy, error) {
+	policies, err := c.ListFirewallPolicies()
+	if err == nil {
+		for i := range policies {
+			if policies[i].ID == policyId {
+				return &policies[i], nil
+			}
+		}
+	}
+
+	// Fallback: direct GET for a single policy (e.g. newly created, not yet in cache).
 	url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies/%s", c.BaseURL, c.SiteID, policyId)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
@@ -251,6 +356,7 @@ func (c *Client) UpdateFirewallPolicy(policyId string, policy FirewallPolicy) (*
 		return nil, err
 	}
 
+	c.invalidateFWPolicyCache()
 	return &result, nil
 }
 
@@ -258,6 +364,7 @@ func (c *Client) DeleteFirewallPolicy(policyId string) error {
 	url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies/%s", c.BaseURL, c.SiteID, policyId)
 	req, _ := http.NewRequest(http.MethodDelete, url, nil)
 	_, err := c.doRequest(req)
+	c.invalidateFWPolicyCache()
 	return err
 }
 
@@ -270,6 +377,14 @@ type Network struct {
 }
 
 func (c *Client) ListNetworks() ([]Network, error) {
+	c.mu.Lock()
+	if c.networkCache != nil && c.networkCache.valid() {
+		networks := c.networkCache.data
+		c.mu.Unlock()
+		return networks, nil
+	}
+	c.mu.Unlock()
+
 	url := fmt.Sprintf("%s/v1/sites/%s/networks", c.BaseURL, c.SiteID)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
@@ -284,6 +399,10 @@ func (c *Client) ListNetworks() ([]Network, error) {
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal networks: %w. response body: %s", err, string(body))
 	}
+
+	c.mu.Lock()
+	c.networkCache = &cacheEntry[[]Network]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+	c.mu.Unlock()
 
 	return response.Data, nil
 }
@@ -307,20 +426,41 @@ type DNSPolicy struct {
 	TTL         int    `json:"ttlSeconds"`
 }
 
-func (c *Client) CreateDNSPolicy(policy DNSPolicy) (*DNSPolicy, error) {
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies", c.BaseURL, c.SiteID)
+// ListDNSPolicies fetches all DNS policies for the given site, using a short-lived cache.
+// The siteID parameter makes this safe for concurrent use without mutating Client state.
+func (c *Client) ListDNSPolicies(siteID string) ([]DNSPolicy, error) {
+	c.mu.Lock()
+	if c.dnsPolicyCache != nil && c.dnsPolicyCache.valid() {
+		policies := c.dnsPolicyCache.data
+		c.mu.Unlock()
+		return policies, nil
+	}
+	c.mu.Unlock()
 
-	// Debug logging to specific file
-	debugFile := "/tmp/terraform-unifi-debug.log"
-	f, _ := os.OpenFile(debugFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if f != nil {
-		defer f.Close()
-		f.WriteString(fmt.Sprintf("DEBUG: CreateDNSPolicy URL: %s\n", url))
-		f.WriteString(fmt.Sprintf("DEBUG: Client SiteID: '%s'\n", c.SiteID))
-		payload, _ := json.Marshal(policy)
-		f.WriteString(fmt.Sprintf("DEBUG: Payload: %s\n", string(payload)))
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies", c.BaseURL, siteID)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
 	}
 
+	var response struct {
+		Data []DNSPolicy `json:"data"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal dns policies: %w. response body: %s", err, string(body))
+	}
+
+	c.mu.Lock()
+	c.dnsPolicyCache = &cacheEntry[[]DNSPolicy]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+	c.mu.Unlock()
+
+	return response.Data, nil
+}
+
+func (c *Client) CreateDNSPolicy(siteID string, policy DNSPolicy) (*DNSPolicy, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies", c.BaseURL, siteID)
 	payload, _ := json.Marshal(policy)
 	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
 
@@ -334,11 +474,24 @@ func (c *Client) CreateDNSPolicy(policy DNSPolicy) (*DNSPolicy, error) {
 		return nil, err
 	}
 
+	c.invalidateDNSPolicyCache()
 	return &result, nil
 }
 
-func (c *Client) GetDNSPolicy(policyId string) (*DNSPolicy, error) {
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, c.SiteID, policyId)
+// GetDNSPolicy retrieves a single DNS policy. Uses the cached list when available.
+// The siteID parameter makes this safe for concurrent use without mutating Client state.
+func (c *Client) GetDNSPolicy(siteID, policyId string) (*DNSPolicy, error) {
+	policies, err := c.ListDNSPolicies(siteID)
+	if err == nil {
+		for i := range policies {
+			if policies[i].ID == policyId {
+				return &policies[i], nil
+			}
+		}
+	}
+
+	// Fallback: direct GET.
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, siteID, policyId)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
 	body, err := c.doRequest(req)
@@ -354,8 +507,8 @@ func (c *Client) GetDNSPolicy(policyId string) (*DNSPolicy, error) {
 	return &result, nil
 }
 
-func (c *Client) UpdateDNSPolicy(policyId string, policy DNSPolicy) (*DNSPolicy, error) {
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, c.SiteID, policyId)
+func (c *Client) UpdateDNSPolicy(siteID, policyId string, policy DNSPolicy) (*DNSPolicy, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, siteID, policyId)
 	payload, _ := json.Marshal(policy)
 	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
 
@@ -369,12 +522,14 @@ func (c *Client) UpdateDNSPolicy(policyId string, policy DNSPolicy) (*DNSPolicy,
 		return nil, err
 	}
 
+	c.invalidateDNSPolicyCache()
 	return &result, nil
 }
 
-func (c *Client) DeleteDNSPolicy(policyId string) error {
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, c.SiteID, policyId)
+func (c *Client) DeleteDNSPolicy(siteID, policyId string) error {
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, siteID, policyId)
 	req, _ := http.NewRequest(http.MethodDelete, url, nil)
 	_, err := c.doRequest(req)
+	c.invalidateDNSPolicyCache()
 	return err
 }

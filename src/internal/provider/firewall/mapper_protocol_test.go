@@ -26,6 +26,47 @@ func TestMapProtocolToAPI(t *testing.T) {
 	}
 }
 
+func TestMapProtocolToAPI_EmptyProtocol(t *testing.T) {
+	got := mapProtocolToAPI("NAMED_PROTOCOL", "")
+	if got != nil {
+		t.Fatalf("expected nil for empty protocol, got %v", got)
+	}
+}
+
+func TestNormalizeProtocolFilterType(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"PROTOCOL", "NAMED_PROTOCOL"},
+		{"protocol", "NAMED_PROTOCOL"},
+		{"Protocol", "NAMED_PROTOCOL"},
+		{"PRESET", "PRESET"},
+		{"preset", "PRESET"},
+		{"PROTOCOL_NUMBER", "PROTOCOL_NUMBER"},
+		{"NAMED_PROTOCOL", "NAMED_PROTOCOL"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := normalizeProtocolFilterType(tt.input); got != tt.want {
+				t.Errorf("normalizeProtocolFilterType(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMapProtocolFromAPI_Nil(t *testing.T) {
+	if got := mapProtocolFromAPI(nil); got != "" {
+		t.Errorf("expected empty string for nil, got %q", got)
+	}
+}
+
+func TestMapProtocolFromAPI_EmptyMap(t *testing.T) {
+	if got := mapProtocolFromAPI(map[string]interface{}{}); got != "" {
+		t.Errorf("expected empty string for empty map, got %q", got)
+	}
+}
+
 func TestMapProtocolFromAPI(t *testing.T) {
 	tests := []struct {
 		name string

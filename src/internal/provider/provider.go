@@ -63,29 +63,9 @@ func (p *UnifiProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	siteInput := data.SiteID.ValueString()
-	discoveredID := ""
-
-	if siteInput == "auto" {
-		if len(sites) == 1 {
-			discoveredID = sites[0].ID
-		} else if len(sites) == 0 {
-			resp.Diagnostics.AddError("No sites found", "Auto-discovery failed: no sites were found.")
-			return
-		} else {
-			resp.Diagnostics.AddError("Multiple sites found", "Auto-discovery failed: multiple sites exist. Please specify site name or UUID.")
-			return
-		}
-	} else {
-		for _, s := range sites {
-			if s.ID == siteInput || s.Name == siteInput || s.InternalReference == siteInput {
-				discoveredID = s.ID
-				break
-			}
-		}
-	}
-
-	if discoveredID == "" {
-		resp.Diagnostics.AddError("Site not found", fmt.Sprintf("Could not find site matching: %s", siteInput))
+	discoveredID, err2 := discoverSiteID(sites, siteInput)
+	if err2 != nil {
+		resp.Diagnostics.AddError("Site discovery failed", err2.Error())
 		return
 	}
 
@@ -107,6 +87,27 @@ func (p *UnifiProvider) DataSources(ctx context.Context) []func() datasource.Dat
 		firewall.NewFirewallZoneDataSource,
 		NewNetworkDataSource,
 	}
+}
+
+// discoverSiteID resolves a site input (UUID, name, internal reference, or "auto")
+// to a concrete site ID from the list of available sites.
+func discoverSiteID(sites []unifi.Site, siteInput string) (string, error) {
+	if siteInput == "auto" {
+		if len(sites) == 1 {
+			return sites[0].ID, nil
+		} else if len(sites) == 0 {
+			return "", fmt.Errorf("auto-discovery failed: no sites were found")
+		}
+		return "", fmt.Errorf("auto-discovery failed: multiple sites exist, please specify site name or UUID")
+	}
+
+	for _, s := range sites {
+		if s.ID == siteInput || s.Name == siteInput || s.InternalReference == siteInput {
+			return s.ID, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not find site matching: %s", siteInput)
 }
 
 func New(version string) func() provider.Provider {
