@@ -49,8 +49,8 @@ func newMockServer(t *testing.T) (*httptest.Server, *mockUnifiAPI) {
 		},
 		networks: map[string][]Network{
 			"site-1": {
-				{ID: "net-1", Name: "Default", VlanID: 1, Management: "managed"},
-				{ID: "net-2", Name: "Guest", VlanID: 100, Management: "managed"},
+				{ID: "net-1", Name: "Default", VlanID: 1, Management: "GATEWAY"},
+				{ID: "net-2", Name: "Guest", VlanID: 100, Management: "GATEWAY"},
 			},
 		},
 		fwPolicies:     map[string][]FirewallPolicy{},

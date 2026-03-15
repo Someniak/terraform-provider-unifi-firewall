@@ -48,9 +48,9 @@ zones: dict[str, list[dict]] = {
 
 networks: dict[str, list[dict]] = {
     "site-default": [
-        {"id": "net-1", "name": "Default", "vlanId": 1, "management": "managed"},
-        {"id": "net-2", "name": "WAN", "vlanId": 0, "management": "managed"},
-        {"id": "net-3", "name": "Guest", "vlanId": 100, "management": "managed"},
+        {"id": "net-1", "name": "Default", "vlanId": 1, "management": "GATEWAY"},
+        {"id": "net-2", "name": "WAN", "vlanId": 0, "management": "GATEWAY"},
+        {"id": "net-3", "name": "Guest", "vlanId": 100, "management": "GATEWAY"},
     ],
 }
 

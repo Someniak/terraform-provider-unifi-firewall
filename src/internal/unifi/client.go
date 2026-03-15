@@ -114,7 +114,7 @@ type Site struct {
 }
 
 func (c *Client) ListSites() ([]Site, error) {
-	url := fmt.Sprintf("%s/v1/sites", c.BaseURL)
+	url := fmt.Sprintf("%s/v1/sites?limit=200", c.BaseURL)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
 	body, err := c.doRequest(req)
@@ -148,7 +148,7 @@ func (c *Client) ListFirewallZones() ([]FirewallZone, error) {
 	}
 	c.mu.Unlock()
 
-	url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones", c.BaseURL, c.SiteID)
+	url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones?limit=200", c.BaseURL, c.SiteID)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
 	body, err := c.doRequest(req)
@@ -270,7 +270,7 @@ func (c *Client) ListFirewallPolicies() ([]FirewallPolicy, error) {
 	}
 	c.mu.Unlock()
 
-	url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies", c.BaseURL, c.SiteID)
+	url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies?limit=200", c.BaseURL, c.SiteID)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
 	body, err := c.doRequest(req)
@@ -385,7 +385,7 @@ func (c *Client) ListNetworks() ([]Network, error) {
 	}
 	c.mu.Unlock()
 
-	url := fmt.Sprintf("%s/v1/sites/%s/networks", c.BaseURL, c.SiteID)
+	url := fmt.Sprintf("%s/v1/sites/%s/networks?limit=200", c.BaseURL, c.SiteID)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
 	body, err := c.doRequest(req)
@@ -437,7 +437,7 @@ func (c *Client) ListDNSPolicies(siteID string) ([]DNSPolicy, error) {
 	}
 	c.mu.Unlock()
 
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies", c.BaseURL, siteID)
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies?limit=200", c.BaseURL, siteID)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
 	body, err := c.doRequest(req)
