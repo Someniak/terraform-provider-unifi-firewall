@@ -134,7 +134,7 @@ def check_api_key():
 @app.route("/v1/sites", methods=["GET"])
 def list_sites():
     log_event("LIST", "site", "*")
-    return jsonify({"data": sites})
+    return jsonify({"offset": 0, "limit": 25, "count": len(sites), "totalCount": len(sites), "data": sites})
 
 
 # Firewall Zones
@@ -142,7 +142,8 @@ def list_sites():
 def list_zones(site_id):
     log_event("LIST", "zone", "*", f"site={site_id}")
     with lock:
-        return jsonify({"data": zones.get(site_id, [])})
+        items = zones.get(site_id, [])
+        return jsonify({"offset": 0, "limit": 25, "count": len(items), "totalCount": len(items), "data": items})
 
 
 @app.route("/v1/sites/<site_id>/firewall/zones", methods=["POST"])
@@ -160,7 +161,8 @@ def create_zone(site_id):
 def list_networks(site_id):
     log_event("LIST", "network", "*", f"site={site_id}")
     with lock:
-        return jsonify({"data": networks.get(site_id, [])})
+        items = networks.get(site_id, [])
+        return jsonify({"offset": 0, "limit": 25, "count": len(items), "totalCount": len(items), "data": items})
 
 
 # Firewall Policies
@@ -168,7 +170,8 @@ def list_networks(site_id):
 def list_fw_policies(site_id):
     log_event("LIST", "fw_policy", "*", f"site={site_id}")
     with lock:
-        return jsonify({"data": fw_policies.get(site_id, [])})
+        items = fw_policies.get(site_id, [])
+        return jsonify({"offset": 0, "limit": 25, "count": len(items), "totalCount": len(items), "data": items})
 
 
 @app.route("/v1/sites/<site_id>/firewall/policies", methods=["POST"])
@@ -213,7 +216,7 @@ def delete_fw_policy(site_id, policy_id):
             if p["id"] == policy_id:
                 policies.pop(i)
                 log_event("DELETE", "fw_policy", policy_id)
-                return "", 204
+                return "", 200
     return jsonify({"error": "not found"}), 404
 
 
@@ -236,7 +239,8 @@ def patch_fw_policy(site_id, policy_id):
 def list_dns_policies(site_id):
     log_event("LIST", "dns_policy", "*", f"site={site_id}")
     with lock:
-        return jsonify({"data": dns_policies.get(site_id, [])})
+        items = dns_policies.get(site_id, [])
+        return jsonify({"offset": 0, "limit": 25, "count": len(items), "totalCount": len(items), "data": items})
 
 
 @app.route("/v1/sites/<site_id>/dns/policies", methods=["POST"])
@@ -281,7 +285,7 @@ def delete_dns_policy(site_id, policy_id):
             if p["id"] == policy_id:
                 policies.pop(i)
                 log_event("DELETE", "dns_policy", policy_id)
-                return "", 204
+                return "", 200
     return jsonify({"error": "not found"}), 404
 
 
