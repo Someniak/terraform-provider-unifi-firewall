@@ -119,6 +119,16 @@ func (r *DNSPolicyResource) Configure(ctx context.Context, req resource.Configur
 	r.client = client
 }
 
+// effectiveSiteID returns the site ID to use for API calls. If the resource
+// has a per-resource site_id override, use that; otherwise fall back to the
+// provider-level default. This avoids mutating shared client state.
+func (r *DNSPolicyResource) effectiveSiteID(siteID types.String) string {
+	if !siteID.IsNull() && !siteID.IsUnknown() {
+		return siteID.ValueString()
+	}
+	return r.client.SiteID
+}
+
 func (r *DNSPolicyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan DNSPolicyResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -164,25 +174,16 @@ func (r *DNSPolicyResource) Create(ctx context.Context, req resource.CreateReque
 		policy.TTL = int(plan.TTL.ValueInt64())
 	}
 
-	// Override site ID if provided
-	originalSiteID := r.client.SiteID
-	if !plan.SiteID.IsNull() && !plan.SiteID.IsUnknown() {
-		r.client.SiteID = plan.SiteID.ValueString()
-	}
-	// Capture the SiteID used for creation to store in state
-	usedSiteID := r.client.SiteID
+	siteID := r.effectiveSiteID(plan.SiteID)
 
-	defer func() { r.client.SiteID = originalSiteID }()
-
-	createdPolicy, err := r.client.CreateDNSPolicy(policy)
+	createdPolicy, err := r.client.CreateDNSPolicy(siteID, policy)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating DNS policy", err.Error())
 		return
 	}
 
-	// Map response to state
 	plan.ID = types.StringValue(createdPolicy.ID)
-	plan.SiteID = types.StringValue(usedSiteID)
+	plan.SiteID = types.StringValue(siteID)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -194,13 +195,9 @@ func (r *DNSPolicyResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	originalSiteID := r.client.SiteID
-	if !state.SiteID.IsNull() {
-		r.client.SiteID = state.SiteID.ValueString()
-	}
-	defer func() { r.client.SiteID = originalSiteID }()
+	siteID := r.effectiveSiteID(state.SiteID)
 
-	policy, err := r.client.GetDNSPolicy(state.ID.ValueString())
+	policy, err := r.client.GetDNSPolicy(siteID, state.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading DNS policy", err.Error())
 		return
@@ -288,13 +285,9 @@ func (r *DNSPolicyResource) Update(ctx context.Context, req resource.UpdateReque
 		policy.TTL = int(plan.TTL.ValueInt64())
 	}
 
-	originalSiteID := r.client.SiteID
-	if !plan.SiteID.IsNull() {
-		r.client.SiteID = plan.SiteID.ValueString()
-	}
-	defer func() { r.client.SiteID = originalSiteID }()
+	siteID := r.effectiveSiteID(plan.SiteID)
 
-	_, err := r.client.UpdateDNSPolicy(plan.ID.ValueString(), policy)
+	_, err := r.client.UpdateDNSPolicy(siteID, plan.ID.ValueString(), policy)
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating DNS policy", err.Error())
 		return
@@ -310,13 +303,9 @@ func (r *DNSPolicyResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	originalSiteID := r.client.SiteID
-	if !state.SiteID.IsNull() {
-		r.client.SiteID = state.SiteID.ValueString()
-	}
-	defer func() { r.client.SiteID = originalSiteID }()
+	siteID := r.effectiveSiteID(state.SiteID)
 
-	err := r.client.DeleteDNSPolicy(state.ID.ValueString())
+	err := r.client.DeleteDNSPolicy(siteID, state.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting DNS policy", err.Error())
 		return

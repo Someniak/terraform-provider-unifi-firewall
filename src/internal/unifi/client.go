@@ -426,8 +426,9 @@ type DNSPolicy struct {
 	TTL         int    `json:"ttlSeconds"`
 }
 
-// ListDNSPolicies fetches all DNS policies, using a short-lived cache.
-func (c *Client) ListDNSPolicies() ([]DNSPolicy, error) {
+// ListDNSPolicies fetches all DNS policies for the given site, using a short-lived cache.
+// The siteID parameter makes this safe for concurrent use without mutating Client state.
+func (c *Client) ListDNSPolicies(siteID string) ([]DNSPolicy, error) {
 	c.mu.Lock()
 	if c.dnsPolicyCache != nil && c.dnsPolicyCache.valid() {
 		policies := c.dnsPolicyCache.data
@@ -436,7 +437,7 @@ func (c *Client) ListDNSPolicies() ([]DNSPolicy, error) {
 	}
 	c.mu.Unlock()
 
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies", c.BaseURL, c.SiteID)
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies", c.BaseURL, siteID)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
 	body, err := c.doRequest(req)
@@ -458,8 +459,8 @@ func (c *Client) ListDNSPolicies() ([]DNSPolicy, error) {
 	return response.Data, nil
 }
 
-func (c *Client) CreateDNSPolicy(policy DNSPolicy) (*DNSPolicy, error) {
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies", c.BaseURL, c.SiteID)
+func (c *Client) CreateDNSPolicy(siteID string, policy DNSPolicy) (*DNSPolicy, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies", c.BaseURL, siteID)
 	payload, _ := json.Marshal(policy)
 	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
 
@@ -478,8 +479,9 @@ func (c *Client) CreateDNSPolicy(policy DNSPolicy) (*DNSPolicy, error) {
 }
 
 // GetDNSPolicy retrieves a single DNS policy. Uses the cached list when available.
-func (c *Client) GetDNSPolicy(policyId string) (*DNSPolicy, error) {
-	policies, err := c.ListDNSPolicies()
+// The siteID parameter makes this safe for concurrent use without mutating Client state.
+func (c *Client) GetDNSPolicy(siteID, policyId string) (*DNSPolicy, error) {
+	policies, err := c.ListDNSPolicies(siteID)
 	if err == nil {
 		for i := range policies {
 			if policies[i].ID == policyId {
@@ -489,7 +491,7 @@ func (c *Client) GetDNSPolicy(policyId string) (*DNSPolicy, error) {
 	}
 
 	// Fallback: direct GET.
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, c.SiteID, policyId)
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, siteID, policyId)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
 	body, err := c.doRequest(req)
@@ -505,8 +507,8 @@ func (c *Client) GetDNSPolicy(policyId string) (*DNSPolicy, error) {
 	return &result, nil
 }
 
-func (c *Client) UpdateDNSPolicy(policyId string, policy DNSPolicy) (*DNSPolicy, error) {
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, c.SiteID, policyId)
+func (c *Client) UpdateDNSPolicy(siteID, policyId string, policy DNSPolicy) (*DNSPolicy, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, siteID, policyId)
 	payload, _ := json.Marshal(policy)
 	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
 
@@ -524,8 +526,8 @@ func (c *Client) UpdateDNSPolicy(policyId string, policy DNSPolicy) (*DNSPolicy,
 	return &result, nil
 }
 
-func (c *Client) DeleteDNSPolicy(policyId string) error {
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, c.SiteID, policyId)
+func (c *Client) DeleteDNSPolicy(siteID, policyId string) error {
+	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies/%s", c.BaseURL, siteID, policyId)
 	req, _ := http.NewRequest(http.MethodDelete, url, nil)
 	_, err := c.doRequest(req)
 	c.invalidateDNSPolicyCache()
