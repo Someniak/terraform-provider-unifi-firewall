@@ -114,8 +114,94 @@ def build_snapshot() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def make_list_response(items):
+    """Build a paginated list response matching the real UniFi API envelope."""
+    offset = request.args.get("offset", 0, type=int)
+    limit = request.args.get("limit", 25, type=int)
+    page = items[offset : offset + limit]
+    return jsonify(
+        {
+            "offset": offset,
+            "limit": limit,
+            "count": len(page),
+            "totalCount": len(items),
+            "data": page,
+        }
+    )
+
+
+def error_response(status, code, message, details=None):
+    """Return a structured error response matching real API patterns."""
+    body = {"error": code, "message": message}
+    if details:
+        body["details"] = details
+    log_event("ERROR", code, str(status), message)
+    return jsonify(body), status
+
+
+def _get_nested(data, dotpath):
+    """Traverse a dict by dot-separated keys (e.g. 'action.type')."""
+    obj = data
+    for key in dotpath.split("."):
+        if not isinstance(obj, dict):
+            return None
+        obj = obj.get(key)
+    return obj
+
+
+def validate_required_fields(data, required_fields, enum_rules):
+    """Check required keys and enum values. Returns list of error strings."""
+    errors = []
+    for field in required_fields:
+        if _get_nested(data, field) is None:
+            errors.append(f"missing required field: '{field}'")
+    for dotpath, allowed in enum_rules.items():
+        val = _get_nested(data, dotpath)
+        if val is not None and val not in allowed:
+            errors.append(f"invalid value for '{dotpath}': '{val}' (must be one of {allowed})")
+    return errors
+
+
+FW_POLICY_REQUIRED = ["name", "action", "source", "destination", "ipProtocolScope"]
+FW_POLICY_ENUMS = {
+    "action.type": ["ALLOW", "BLOCK", "REJECT"],
+    "ipProtocolScope.ipVersion": ["IPV4", "IPV6", "IPV4_AND_IPV6"],
+}
+
+DNS_POLICY_REQUIRED = ["type", "domain"]
+DNS_POLICY_ENUMS = {
+    "type": [
+        "A_RECORD",
+        "AAAA_RECORD",
+        "CNAME_RECORD",
+        "MX_RECORD",
+        "TXT_RECORD",
+        "SRV_RECORD",
+        "FORWARD_DOMAIN",
+    ],
+}
+
+
+def validate_zone_refs(site_id, data):
+    """Check that source/destination zoneIds reference existing zones."""
+    errors = []
+    known_ids = {z["id"] for z in zones.get(site_id, [])}
+    for field in ("source", "destination"):
+        obj = data.get(field, {})
+        zone_id = obj.get("zoneId")
+        if zone_id and zone_id not in known_ids:
+            errors.append(f"{field}.zoneId '{zone_id}' not found in site '{site_id}'")
+    return errors
+
+
+# ---------------------------------------------------------------------------
 # API key check (accepts anything, just logs it)
 # ---------------------------------------------------------------------------
+
 
 @app.before_request
 def check_api_key():
@@ -124,7 +210,7 @@ def check_api_key():
         return
     api_key = request.headers.get("X-API-Key", "")
     if not api_key:
-        return jsonify({"error": "Missing X-API-Key header"}), 401
+        return error_response(401, "unauthorized", "Missing X-API-Key header")
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +221,7 @@ def check_api_key():
 @app.route("/v1/sites", methods=["GET"])
 def list_sites():
     log_event("LIST", "site", "*")
-    return jsonify({"offset": 0, "limit": 25, "count": len(sites), "totalCount": len(sites), "data": sites})
+    return make_list_response(sites)
 
 
 # Firewall Zones
@@ -144,7 +230,7 @@ def list_zones(site_id):
     log_event("LIST", "zone", "*", f"site={site_id}")
     with lock:
         items = zones.get(site_id, [])
-        return jsonify({"offset": 0, "limit": 25, "count": len(items), "totalCount": len(items), "data": items})
+        return make_list_response(items)
 
 
 @app.route("/v1/sites/<site_id>/firewall/zones", methods=["POST"])
@@ -163,7 +249,7 @@ def list_networks(site_id):
     log_event("LIST", "network", "*", f"site={site_id}")
     with lock:
         items = networks.get(site_id, [])
-        return jsonify({"offset": 0, "limit": 25, "count": len(items), "totalCount": len(items), "data": items})
+        return make_list_response(items)
 
 
 # Firewall Policies
@@ -172,12 +258,16 @@ def list_fw_policies(site_id):
     log_event("LIST", "fw_policy", "*", f"site={site_id}")
     with lock:
         items = fw_policies.get(site_id, [])
-        return jsonify({"offset": 0, "limit": 25, "count": len(items), "totalCount": len(items), "data": items})
+        return make_list_response(items)
 
 
 @app.route("/v1/sites/<site_id>/firewall/policies", methods=["POST"])
 def create_fw_policy(site_id):
     data = request.get_json()
+    errors = validate_required_fields(data, FW_POLICY_REQUIRED, FW_POLICY_ENUMS)
+    errors.extend(validate_zone_refs(site_id, data))
+    if errors:
+        return error_response(422, "validation_failed", "Invalid firewall policy", details=errors)
     data["id"] = f"fw-{uuid.uuid4().hex[:8]}"
     with lock:
         fw_policies.setdefault(site_id, []).append(data)
@@ -192,12 +282,16 @@ def get_fw_policy(site_id, policy_id):
         for p in fw_policies.get(site_id, []):
             if p["id"] == policy_id:
                 return jsonify(p)
-    return jsonify({"error": "not found"}), 404
+    return error_response(404, "not_found", f"Firewall policy '{policy_id}' not found")
 
 
 @app.route("/v1/sites/<site_id>/firewall/policies/<policy_id>", methods=["PUT"])
 def update_fw_policy(site_id, policy_id):
     data = request.get_json()
+    errors = validate_required_fields(data, FW_POLICY_REQUIRED, FW_POLICY_ENUMS)
+    errors.extend(validate_zone_refs(site_id, data))
+    if errors:
+        return error_response(422, "validation_failed", "Invalid firewall policy", details=errors)
     data["id"] = policy_id
     with lock:
         policies = fw_policies.get(site_id, [])
@@ -206,7 +300,7 @@ def update_fw_policy(site_id, policy_id):
                 policies[i] = data
                 log_event("UPDATE", "fw_policy", policy_id, data.get("name", ""))
                 return jsonify(data)
-    return jsonify({"error": "not found"}), 404
+    return error_response(404, "not_found", f"Firewall policy '{policy_id}' not found")
 
 
 @app.route("/v1/sites/<site_id>/firewall/policies/<policy_id>", methods=["DELETE"])
@@ -217,8 +311,8 @@ def delete_fw_policy(site_id, policy_id):
             if p["id"] == policy_id:
                 policies.pop(i)
                 log_event("DELETE", "fw_policy", policy_id)
-                return "", 200
-    return jsonify({"error": "not found"}), 404
+                return "", 204
+    return error_response(404, "not_found", f"Firewall policy '{policy_id}' not found")
 
 
 @app.route("/v1/sites/<site_id>/firewall/policies/<policy_id>", methods=["PATCH"])
@@ -232,7 +326,7 @@ def patch_fw_policy(site_id, policy_id):
                 p["id"] = policy_id
                 log_event("PATCH", "fw_policy", policy_id)
                 return jsonify(p)
-    return jsonify({"error": "not found"}), 404
+    return error_response(404, "not_found", f"Firewall policy '{policy_id}' not found")
 
 
 # DNS Policies
@@ -241,12 +335,15 @@ def list_dns_policies(site_id):
     log_event("LIST", "dns_policy", "*", f"site={site_id}")
     with lock:
         items = dns_policies.get(site_id, [])
-        return jsonify({"offset": 0, "limit": 25, "count": len(items), "totalCount": len(items), "data": items})
+        return make_list_response(items)
 
 
 @app.route("/v1/sites/<site_id>/dns/policies", methods=["POST"])
 def create_dns_policy(site_id):
     data = request.get_json()
+    errors = validate_required_fields(data, DNS_POLICY_REQUIRED, DNS_POLICY_ENUMS)
+    if errors:
+        return error_response(422, "validation_failed", "Invalid DNS policy", details=errors)
     data["id"] = f"dns-{uuid.uuid4().hex[:8]}"
     with lock:
         dns_policies.setdefault(site_id, []).append(data)
@@ -261,12 +358,15 @@ def get_dns_policy(site_id, policy_id):
         for p in dns_policies.get(site_id, []):
             if p["id"] == policy_id:
                 return jsonify(p)
-    return jsonify({"error": "not found"}), 404
+    return error_response(404, "not_found", f"DNS policy '{policy_id}' not found")
 
 
 @app.route("/v1/sites/<site_id>/dns/policies/<policy_id>", methods=["PUT"])
 def update_dns_policy(site_id, policy_id):
     data = request.get_json()
+    errors = validate_required_fields(data, DNS_POLICY_REQUIRED, DNS_POLICY_ENUMS)
+    if errors:
+        return error_response(422, "validation_failed", "Invalid DNS policy", details=errors)
     data["id"] = policy_id
     with lock:
         policies = dns_policies.get(site_id, [])
@@ -275,7 +375,7 @@ def update_dns_policy(site_id, policy_id):
                 policies[i] = data
                 log_event("UPDATE", "dns_policy", policy_id, data.get("domain", ""))
                 return jsonify(data)
-    return jsonify({"error": "not found"}), 404
+    return error_response(404, "not_found", f"DNS policy '{policy_id}' not found")
 
 
 @app.route("/v1/sites/<site_id>/dns/policies/<policy_id>", methods=["DELETE"])
@@ -286,8 +386,8 @@ def delete_dns_policy(site_id, policy_id):
             if p["id"] == policy_id:
                 policies.pop(i)
                 log_event("DELETE", "dns_policy", policy_id)
-                return "", 200
-    return jsonify({"error": "not found"}), 404
+                return "", 204
+    return error_response(404, "not_found", f"DNS policy '{policy_id}' not found")
 
 
 # Firewall Policy Ordering (stub)
