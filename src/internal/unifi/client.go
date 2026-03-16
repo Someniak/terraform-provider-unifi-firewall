@@ -251,26 +251,38 @@ func (c *Client) ListFirewallZones() ([]FirewallZone, error) {
 	c.mu.Unlock()
 
 	v, err, _ := c.sf.Do("fw-zones", func() (interface{}, error) {
-		url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones?limit=200", c.BaseURL, c.SiteID)
-		req, _ := http.NewRequest(http.MethodGet, url, nil)
+		var allZones []FirewallZone
+		offset := 0
+		const pageSize = 200
 
-		body, err := c.doRequest(req)
-		if err != nil {
-			return nil, err
-		}
+		for {
+			url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones?limit=%d&offset=%d", c.BaseURL, c.SiteID, pageSize, offset)
+			req, _ := http.NewRequest(http.MethodGet, url, nil)
 
-		var response struct {
-			Data []FirewallZone `json:"data"`
-		}
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal firewall zones: %w. response body: %s", err, string(body))
+			body, err := c.doRequest(req)
+			if err != nil {
+				return nil, err
+			}
+
+			var response struct {
+				Data []FirewallZone `json:"data"`
+			}
+			if err := json.Unmarshal(body, &response); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal firewall zones: %w. response body: %s", err, string(body))
+			}
+
+			allZones = append(allZones, response.Data...)
+			if len(response.Data) < pageSize {
+				break
+			}
+			offset += pageSize
 		}
 
 		c.mu.Lock()
-		c.zoneCache = &cacheEntry[[]FirewallZone]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+		c.zoneCache = &cacheEntry[[]FirewallZone]{data: allZones, expiresAt: time.Now().Add(cacheTTL)}
 		c.mu.Unlock()
 
-		return response.Data, nil
+		return allZones, nil
 	})
 	if err != nil {
 		return nil, err
@@ -381,26 +393,38 @@ func (c *Client) ListFirewallPolicies() ([]FirewallPolicy, error) {
 	c.mu.Unlock()
 
 	v, err, _ := c.sf.Do("fw-policies", func() (interface{}, error) {
-		url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies?limit=200", c.BaseURL, c.SiteID)
-		req, _ := http.NewRequest(http.MethodGet, url, nil)
+		var allPolicies []FirewallPolicy
+		offset := 0
+		const pageSize = 200
 
-		body, err := c.doRequest(req)
-		if err != nil {
-			return nil, err
-		}
+		for {
+			url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies?limit=%d&offset=%d", c.BaseURL, c.SiteID, pageSize, offset)
+			req, _ := http.NewRequest(http.MethodGet, url, nil)
 
-		var response struct {
-			Data []FirewallPolicy `json:"data"`
-		}
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal firewall policies: %w. response body: %s", err, string(body))
+			body, err := c.doRequest(req)
+			if err != nil {
+				return nil, err
+			}
+
+			var response struct {
+				Data []FirewallPolicy `json:"data"`
+			}
+			if err := json.Unmarshal(body, &response); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal firewall policies: %w. response body: %s", err, string(body))
+			}
+
+			allPolicies = append(allPolicies, response.Data...)
+			if len(response.Data) < pageSize {
+				break
+			}
+			offset += pageSize
 		}
 
 		c.mu.Lock()
-		c.fwPolicyCache = &cacheEntry[[]FirewallPolicy]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+		c.fwPolicyCache = &cacheEntry[[]FirewallPolicy]{data: allPolicies, expiresAt: time.Now().Add(cacheTTL)}
 		c.mu.Unlock()
 
-		return response.Data, nil
+		return allPolicies, nil
 	})
 	if err != nil {
 		return nil, err
@@ -502,26 +526,38 @@ func (c *Client) ListNetworks() ([]Network, error) {
 	c.mu.Unlock()
 
 	v, err, _ := c.sf.Do("networks", func() (interface{}, error) {
-		url := fmt.Sprintf("%s/v1/sites/%s/networks?limit=200", c.BaseURL, c.SiteID)
-		req, _ := http.NewRequest(http.MethodGet, url, nil)
+		var allNetworks []Network
+		offset := 0
+		const pageSize = 200
 
-		body, err := c.doRequest(req)
-		if err != nil {
-			return nil, err
-		}
+		for {
+			url := fmt.Sprintf("%s/v1/sites/%s/networks?limit=%d&offset=%d", c.BaseURL, c.SiteID, pageSize, offset)
+			req, _ := http.NewRequest(http.MethodGet, url, nil)
 
-		var response struct {
-			Data []Network `json:"data"`
-		}
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal networks: %w. response body: %s", err, string(body))
+			body, err := c.doRequest(req)
+			if err != nil {
+				return nil, err
+			}
+
+			var response struct {
+				Data []Network `json:"data"`
+			}
+			if err := json.Unmarshal(body, &response); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal networks: %w. response body: %s", err, string(body))
+			}
+
+			allNetworks = append(allNetworks, response.Data...)
+			if len(response.Data) < pageSize {
+				break
+			}
+			offset += pageSize
 		}
 
 		c.mu.Lock()
-		c.networkCache = &cacheEntry[[]Network]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+		c.networkCache = &cacheEntry[[]Network]{data: allNetworks, expiresAt: time.Now().Add(cacheTTL)}
 		c.mu.Unlock()
 
-		return response.Data, nil
+		return allNetworks, nil
 	})
 	if err != nil {
 		return nil, err
@@ -572,26 +608,38 @@ func (c *Client) ListDNSPolicies(siteID string) ([]DNSPolicy, error) {
 	c.mu.Unlock()
 
 	v, err, _ := c.sf.Do("dns-policies", func() (interface{}, error) {
-		url := fmt.Sprintf("%s/v1/sites/%s/dns/policies?limit=200", c.BaseURL, siteID)
-		req, _ := http.NewRequest(http.MethodGet, url, nil)
+		var allPolicies []DNSPolicy
+		offset := 0
+		const pageSize = 200
 
-		body, err := c.doRequest(req)
-		if err != nil {
-			return nil, err
-		}
+		for {
+			url := fmt.Sprintf("%s/v1/sites/%s/dns/policies?limit=%d&offset=%d", c.BaseURL, siteID, pageSize, offset)
+			req, _ := http.NewRequest(http.MethodGet, url, nil)
 
-		var response struct {
-			Data []DNSPolicy `json:"data"`
-		}
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal dns policies: %w. response body: %s", err, string(body))
+			body, err := c.doRequest(req)
+			if err != nil {
+				return nil, err
+			}
+
+			var response struct {
+				Data []DNSPolicy `json:"data"`
+			}
+			if err := json.Unmarshal(body, &response); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal dns policies: %w. response body: %s", err, string(body))
+			}
+
+			allPolicies = append(allPolicies, response.Data...)
+			if len(response.Data) < pageSize {
+				break
+			}
+			offset += pageSize
 		}
 
 		c.mu.Lock()
-		c.dnsPolicyCache = &cacheEntry[[]DNSPolicy]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+		c.dnsPolicyCache = &cacheEntry[[]DNSPolicy]{data: allPolicies, expiresAt: time.Now().Add(cacheTTL)}
 		c.mu.Unlock()
 
-		return response.Data, nil
+		return allPolicies, nil
 	})
 	if err != nil {
 		return nil, err
