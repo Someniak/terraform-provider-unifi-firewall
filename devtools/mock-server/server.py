@@ -486,6 +486,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .badge-update { background: rgba(251, 191, 36, 0.15); color: var(--yellow); }
   .badge-delete { background: rgba(248, 113, 113, 0.15); color: var(--red); }
   .badge-patch { background: rgba(251, 191, 36, 0.15); color: var(--yellow); }
+  .badge-error { background: rgba(248, 113, 113, 0.15); color: var(--red); }
 
   .event-log { padding: 0; }
   .event-log .card-body { max-height: 280px; }
@@ -605,7 +606,7 @@ function render(data) {
   // Events
   const events = (data.events || []).reverse();
   document.getElementById('event-count').textContent = events.length;
-  const badgeClass = {CREATE: 'badge-create', READ: 'badge-read', LIST: 'badge-list', UPDATE: 'badge-update', DELETE: 'badge-delete', PATCH: 'badge-patch'};
+  const badgeClass = {CREATE: 'badge-create', READ: 'badge-read', LIST: 'badge-list', UPDATE: 'badge-update', DELETE: 'badge-delete', PATCH: 'badge-patch', ERROR: 'badge-error'};
   document.getElementById('event-body').innerHTML = events.map(ev => `
     <div class="event">
       <span class="time">${ev.time}</span>
