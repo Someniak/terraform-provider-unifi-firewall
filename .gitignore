@@ -15,8 +15,9 @@ vendor/
 *.out
 *.test
 
-# Python venvs
+# Python venvs & cache
 .venv/
+__pycache__/
 
 # OS/IDE files
 .DS_Store
