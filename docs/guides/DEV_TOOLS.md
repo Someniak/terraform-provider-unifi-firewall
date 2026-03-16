@@ -75,18 +75,7 @@ terraform apply -var-file=mock.tfvars -auto-approve
 
 ### 2. Integration Environment (real UniFi OS Server, Docker)
 
-A Docker-based UniFi OS Server instance. Tests against the real v1 API to catch issues the mock can't. Runs as a single privileged container with systemd, bundled MongoDB, and all UniFi services.
-
-**One-time: Build the Docker image**
-
-The image is built from the official UniFi OS Server installer binary. Get the download URL from [ui.com/download/software/unifi-os-server](https://ui.com/download/software/unifi-os-server) (right-click → copy link address).
-
-```bash
-export UOS_DOWNLOAD_URL="https://fw-download.ubnt.com/data/unifi-os-server/..."
-make integration-build      # ~5 min, cached after first run
-```
-
-This uses a Dockerized extraction pipeline — only Docker is needed on your machine.
+A Docker-based UniFi OS Server instance using the [`ghcr.io/lemker/unifi-os-server`](https://github.com/lemker/unifi-os-server) image. Tests against the real v1 API to catch issues the mock can't. Runs as a single privileged container with systemd, bundled MongoDB, and all UniFi services.
 
 **Start:**
 
@@ -155,5 +144,3 @@ make integration-down       # stops container, removes volumes
 **Port conflicts** — Edit `devtools/integration/docker-compose.yml` to change host ports.
 
 **Start fresh** — `make integration-down && make integration-up`
-
-**Image build fails** — Ensure the `UOS_DOWNLOAD_URL` is valid and the installer is for x64 Linux. The URL expires after a while; get a fresh one from [ui.com/download](https://ui.com/download/software/unifi-os-server).

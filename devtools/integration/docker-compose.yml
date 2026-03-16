@@ -1,8 +1,10 @@
 services:
   unifi-os-server:
-    image: unifi-os-server:local
+    image: ghcr.io/lemker/unifi-os-server:latest
     container_name: unifi-os-server
     privileged: true
+    environment:
+      - UOS_SYSTEM_IP=localhost
     volumes:
       - unifi-persistent:/persistent
       - unifi-data:/data

@@ -46,9 +46,6 @@ clean:
 	rm -f examples/.terraform.lock.hcl
 
 # Integration test environment (real UniFi OS Server in Docker)
-integration-build:
-	cd devtools/integration && bash build.sh
-
 integration-up:
 	cd devtools/integration && docker compose up -d
 	cd devtools/integration && bash setup.sh
