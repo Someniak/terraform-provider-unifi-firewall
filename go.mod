@@ -1,11 +1,11 @@
 module github.com/someniak/terraform-provider-unifi-firewall
 
-go 1.25.0
+go 1.24.7
 
 require (
 	github.com/hashicorp/terraform-plugin-framework v1.16.1
 	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.19.0
 )
 
 require (

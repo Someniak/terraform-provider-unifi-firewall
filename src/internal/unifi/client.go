@@ -235,8 +235,19 @@ func (c *Client) ListSites() ([]Site, error) {
 }
 
 // Firewall Zones
+type FirewallZoneMetadata struct {
+	Origin string `json:"origin"` // USER_DEFINED or SYSTEM_DEFINED
+}
+
 type FirewallZone struct {
-	ID         string   `json:"id"`
+	ID         string                `json:"id"`
+	Name       string                `json:"name"`
+	NetworkIDs []string              `json:"networkIds"`
+	Metadata   *FirewallZoneMetadata `json:"metadata,omitempty"`
+}
+
+// FirewallZoneRequest is the body for create/update zone API calls.
+type FirewallZoneRequest struct {
 	Name       string   `json:"name"`
 	NetworkIDs []string `json:"networkIds"`
 }
@@ -288,6 +299,87 @@ func (c *Client) ListFirewallZones() ([]FirewallZone, error) {
 		return nil, err
 	}
 	return v.([]FirewallZone), nil
+}
+
+// invalidateZoneCache clears the firewall zone cache.
+func (c *Client) invalidateZoneCache() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.zoneCache = nil
+}
+
+func (c *Client) CreateFirewallZone(zone FirewallZoneRequest) (*FirewallZone, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones", c.BaseURL, c.SiteID)
+	payload, _ := json.Marshal(zone)
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result FirewallZone
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	c.invalidateZoneCache()
+	return &result, nil
+}
+
+// GetFirewallZone retrieves a single zone. Uses the cached list when available.
+func (c *Client) GetFirewallZone(zoneID string) (*FirewallZone, error) {
+	zones, err := c.ListFirewallZones()
+	if err == nil {
+		for i := range zones {
+			if zones[i].ID == zoneID {
+				return &zones[i], nil
+			}
+		}
+	}
+
+	// Fallback: direct GET for a single zone.
+	url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones/%s", c.BaseURL, c.SiteID, zoneID)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result FirewallZone
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) UpdateFirewallZone(zoneID string, zone FirewallZoneRequest) (*FirewallZone, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones/%s", c.BaseURL, c.SiteID, zoneID)
+	payload, _ := json.Marshal(zone)
+	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result FirewallZone
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	c.invalidateZoneCache()
+	return &result, nil
+}
+
+func (c *Client) DeleteFirewallZone(zoneID string) error {
+	url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones/%s", c.BaseURL, c.SiteID, zoneID)
+	req, _ := http.NewRequest(http.MethodDelete, url, nil)
+	_, err := c.doRequest(req)
+	c.invalidateZoneCache()
+	return err
 }
 
 // Firewall Policies
