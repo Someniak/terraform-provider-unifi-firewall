@@ -499,6 +499,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
   .empty { color: var(--muted); padding: 20px; text-align: center; font-style: italic; }
 
+  tr.expandable { cursor: pointer; }
+  tr.expandable:hover td { background: rgba(79, 143, 247, 0.08); }
+  tr.detail-row td { padding: 0; border-top: none; }
+  tr.detail-row pre { margin: 0; padding: 8px 14px; background: var(--bg); color: var(--muted); font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+  tr.detail-row.hidden { display: none; }
+  .expand-icon { color: var(--muted); font-size: 10px; margin-right: 4px; transition: transform 0.15s; display: inline-block; }
+  .expand-icon.open { transform: rotate(90deg); }
+
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: var(--surface); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -566,11 +574,13 @@ function render(data) {
   document.getElementById('fw-count').textContent = fwPolicies.length;
   document.getElementById('fw-table').innerHTML = fwPolicies.length === 0
     ? '<tr><td colspan="4" class="empty">No firewall policies yet. Run terraform apply...</td></tr>'
-    : fwPolicies.map(p => `<tr>
-        <td class="id">${p.id}</td>
+    : fwPolicies.map((p, i) => `<tr class="expandable" onclick="toggleDetail('fw-detail-${i}', this)">
+        <td class="id"><span class="expand-icon" id="fw-icon-${i}">&#9654;</span>${p.id}</td>
         <td>${p.name || '-'}</td>
         <td>${p.action?.type || '-'}</td>
         <td class="${p.enabled ? 'enabled' : 'disabled'}">${p.enabled ? 'Yes' : 'No'}</td>
+      </tr><tr class="detail-row hidden" id="fw-detail-${i}">
+        <td colspan="4"><pre>${escapeHtml(JSON.stringify(p, null, 2))}</pre></td>
       </tr>`).join('');
 
   // DNS Policies
@@ -578,11 +588,13 @@ function render(data) {
   document.getElementById('dns-count').textContent = dnsPolicies.length;
   document.getElementById('dns-table').innerHTML = dnsPolicies.length === 0
     ? '<tr><td colspan="4" class="empty">No DNS policies yet. Run terraform apply...</td></tr>'
-    : dnsPolicies.map(p => `<tr>
-        <td class="id">${p.id}</td>
+    : dnsPolicies.map((p, i) => `<tr class="expandable" onclick="toggleDetail('dns-detail-${i}', this)">
+        <td class="id"><span class="expand-icon" id="dns-icon-${i}">&#9654;</span>${p.id}</td>
         <td>${p.domain || '-'}</td>
         <td>${p.type || '-'}</td>
         <td class="${p.enabled ? 'enabled' : 'disabled'}">${p.enabled ? 'Yes' : 'No'}</td>
+      </tr><tr class="detail-row hidden" id="dns-detail-${i}">
+        <td colspan="4"><pre>${escapeHtml(JSON.stringify(p, null, 2))}</pre></td>
       </tr>`).join('');
 
   // Zones
@@ -616,6 +628,19 @@ function render(data) {
       <span>${ev.detail || ''}</span>
     </div>
   `).join('');
+}
+
+function toggleDetail(detailId, row) {
+  const detail = document.getElementById(detailId);
+  const icon = row.querySelector('.expand-icon');
+  if (detail) {
+    detail.classList.toggle('hidden');
+    if (icon) icon.classList.toggle('open');
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 </script>
 </body>
