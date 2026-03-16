@@ -545,3 +545,85 @@ func (c *Client) DeleteDNSPolicy(siteID, policyId string) error {
 	c.invalidateDNSPolicyCache()
 	return err
 }
+
+// Client Devices (for fixed IP / DHCP reservations)
+type ClientDevice struct {
+	ID         string `json:"id,omitempty"`
+	MAC        string `json:"mac"`
+	Name       string `json:"name,omitempty"`
+	UseFixedIP bool   `json:"use_fixedip"`
+	NetworkID  string `json:"network_id,omitempty"`
+	FixedIP    string `json:"fixed_ip,omitempty"`
+}
+
+func (c *Client) ListClients(siteID string) ([]ClientDevice, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/clients?limit=200", c.BaseURL, siteID)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var response struct {
+		Data []ClientDevice `json:"data"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal clients: %w. response body: %s", err, string(body))
+	}
+
+	return response.Data, nil
+}
+
+func (c *Client) GetClient(siteID, clientID string) (*ClientDevice, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/clients/%s", c.BaseURL, siteID, clientID)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ClientDevice
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal client: %w. response body: %s", err, string(body))
+	}
+
+	return &result, nil
+}
+
+func (c *Client) SetClientFixedIP(siteID, clientID, networkID, fixedIP, name string) (*ClientDevice, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/clients/%s", c.BaseURL, siteID, clientID)
+	update := ClientDevice{
+		UseFixedIP: true,
+		NetworkID:  networkID,
+		FixedIP:    fixedIP,
+		Name:       name,
+	}
+	payload, _ := json.Marshal(update)
+	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ClientDevice
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) UnsetClientFixedIP(siteID, clientID string) error {
+	url := fmt.Sprintf("%s/v1/sites/%s/clients/%s", c.BaseURL, siteID, clientID)
+	update := map[string]interface{}{
+		"use_fixedip": false,
+	}
+	payload, _ := json.Marshal(update)
+	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
+
+	_, err := c.doRequest(req)
+	return err
+}

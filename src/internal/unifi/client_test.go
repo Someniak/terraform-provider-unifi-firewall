@@ -620,6 +620,161 @@ func TestDNSPolicy_FullCRUDCycle(t *testing.T) {
 	}
 }
 
+// --- Client Devices ---
+
+func TestListClients_HappyPath(t *testing.T) {
+	srv, mock := newMockServer(t)
+	client := NewClient(srv.URL, "test-key", "site-1", false)
+
+	clients, err := client.ListClients("site-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(clients) != 2 {
+		t.Fatalf("expected 2 clients, got %d", len(clients))
+	}
+	if clients[0].MAC != "00:11:22:33:44:55" {
+		t.Errorf("expected MAC '00:11:22:33:44:55', got %q", clients[0].MAC)
+	}
+	if mock.GetCallCount("GET", "/v1/sites/site-1/clients") != 1 {
+		t.Errorf("expected 1 API call")
+	}
+}
+
+func TestListClients_ServerError(t *testing.T) {
+	srv, mock := newMockServer(t)
+	mock.SetError("GET", "/v1/sites/site-1/clients", 500)
+
+	client := NewClient(srv.URL, "test-key", "site-1", false)
+	_, err := client.ListClients("site-1")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestListClients_MalformedJSON(t *testing.T) {
+	srv, mock := newMockServer(t)
+	mock.SetMalformedResponse("GET", "/v1/sites/site-1/clients")
+
+	client := NewClient(srv.URL, "test-key", "site-1", false)
+	_, err := client.ListClients("site-1")
+	if err == nil {
+		t.Fatal("expected unmarshal error, got nil")
+	}
+	if !contains(err.Error(), "unmarshal") {
+		t.Errorf("expected error to contain 'unmarshal', got: %s", err.Error())
+	}
+}
+
+func TestGetClient_HappyPath(t *testing.T) {
+	srv, _ := newMockServer(t)
+	client := NewClient(srv.URL, "test-key", "site-1", false)
+
+	dev, err := client.GetClient("site-1", "client-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if dev.ID != "client-1" {
+		t.Errorf("expected ID 'client-1', got %q", dev.ID)
+	}
+	if dev.MAC != "00:11:22:33:44:55" {
+		t.Errorf("expected MAC '00:11:22:33:44:55', got %q", dev.MAC)
+	}
+}
+
+func TestGetClient_NotFound(t *testing.T) {
+	srv, _ := newMockServer(t)
+	client := NewClient(srv.URL, "test-key", "site-1", false)
+
+	_, err := client.GetClient("site-1", "nonexistent")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestGetClient_MalformedJSON(t *testing.T) {
+	srv, mock := newMockServer(t)
+	mock.SetMalformedResponse("GET", "/v1/sites/site-1/clients/client-1")
+
+	client := NewClient(srv.URL, "test-key", "site-1", false)
+	_, err := client.GetClient("site-1", "client-1")
+	if err == nil {
+		t.Fatal("expected unmarshal error, got nil")
+	}
+}
+
+func TestSetClientFixedIP_HappyPath(t *testing.T) {
+	srv, mock := newMockServer(t)
+	client := NewClient(srv.URL, "test-key", "site-1", false)
+
+	dev, err := client.SetClientFixedIP("site-1", "client-1", "net-1", "192.168.1.100", "server1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if dev.ID != "client-1" {
+		t.Errorf("expected ID 'client-1', got %q", dev.ID)
+	}
+	if !dev.UseFixedIP {
+		t.Error("expected UseFixedIP to be true")
+	}
+	if dev.FixedIP != "192.168.1.100" {
+		t.Errorf("expected FixedIP '192.168.1.100', got %q", dev.FixedIP)
+	}
+
+	// Verify the mock was updated
+	mock.mu.Lock()
+	stored := mock.clients["site-1"][0]
+	mock.mu.Unlock()
+	if !stored.UseFixedIP {
+		t.Error("expected stored client to have UseFixedIP=true")
+	}
+}
+
+func TestSetClientFixedIP_NotFound(t *testing.T) {
+	srv, _ := newMockServer(t)
+	client := NewClient(srv.URL, "test-key", "site-1", false)
+
+	_, err := client.SetClientFixedIP("site-1", "nonexistent", "net-1", "192.168.1.100", "test")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestUnsetClientFixedIP_HappyPath(t *testing.T) {
+	srv, mock := newMockServer(t)
+	client := NewClient(srv.URL, "test-key", "site-1", false)
+
+	// First set a fixed IP
+	_, err := client.SetClientFixedIP("site-1", "client-1", "net-1", "192.168.1.100", "server1")
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	// Then unset it
+	err = client.UnsetClientFixedIP("site-1", "client-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify the mock was updated
+	mock.mu.Lock()
+	stored := mock.clients["site-1"][0]
+	mock.mu.Unlock()
+	if stored.UseFixedIP {
+		t.Error("expected stored client to have UseFixedIP=false")
+	}
+}
+
+func TestUnsetClientFixedIP_NotFound(t *testing.T) {
+	srv, _ := newMockServer(t)
+	client := NewClient(srv.URL, "test-key", "site-1", false)
+
+	err := client.UnsetClientFixedIP("site-1", "nonexistent")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
 // helper
 func contains(s, sub string) bool {
 	return len(s) >= len(sub) && (s == sub || len(s) > 0 && containsStr(s, sub))

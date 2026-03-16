@@ -21,8 +21,9 @@ type mockUnifiAPI struct {
 	sites      []Site
 	zones      map[string][]FirewallZone   // keyed by siteID
 	networks   map[string][]Network        // keyed by siteID
-	fwPolicies map[string][]FirewallPolicy // keyed by siteID
+	fwPolicies  map[string][]FirewallPolicy // keyed by siteID
 	dnsPolicies map[string][]DNSPolicy      // keyed by siteID
+	clients     map[string][]ClientDevice   // keyed by siteID
 
 	nextID int
 
@@ -53,8 +54,14 @@ func newMockServer(t *testing.T) (*httptest.Server, *mockUnifiAPI) {
 				{ID: "net-2", Name: "Guest", VlanID: 100, Management: "GATEWAY"},
 			},
 		},
-		fwPolicies:     map[string][]FirewallPolicy{},
-		dnsPolicies:    map[string][]DNSPolicy{},
+		fwPolicies:  map[string][]FirewallPolicy{},
+		dnsPolicies: map[string][]DNSPolicy{},
+		clients: map[string][]ClientDevice{
+			"site-1": {
+				{ID: "client-1", MAC: "00:11:22:33:44:55", Name: "server1"},
+				{ID: "client-2", MAC: "aa:bb:cc:dd:ee:ff", Name: "laptop1"},
+			},
+		},
 		callCounts:     map[string]*atomic.Int32{},
 		errorOverrides: map[string]int{},
 		nextID:         100,
@@ -206,6 +213,18 @@ func (m *mockUnifiAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Route: clients collection
+	if len(parts) == 2 && parts[1] == "clients" && method == http.MethodGet {
+		m.handleClients(w, r, siteID)
+		return
+	}
+
+	// Route: clients single item
+	if len(parts) == 3 && parts[1] == "clients" {
+		m.handleClient(w, r, siteID, parts[2])
+		return
+	}
+
 	http.NotFound(w, r)
 }
 
@@ -342,6 +361,62 @@ func (m *mockUnifiAPI) handleDNSPolicy(w http.ResponseWriter, r *http.Request, s
 		}
 		m.dnsPolicies[siteID] = append(policies[:idx], policies[idx+1:]...)
 		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (m *mockUnifiAPI) handleClients(w http.ResponseWriter, r *http.Request, siteID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	clients := m.clients[siteID]
+	if clients == nil {
+		clients = []ClientDevice{}
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"data": clients})
+}
+
+func (m *mockUnifiAPI) handleClient(w http.ResponseWriter, r *http.Request, siteID, clientID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	clients := m.clients[siteID]
+	idx := -1
+	for i, c := range clients {
+		if c.ID == clientID {
+			idx = i
+			break
+		}
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		json.NewEncoder(w).Encode(clients[idx])
+	case http.MethodPut:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		var update ClientDevice
+		json.Unmarshal(body, &update)
+		// Preserve ID and MAC from existing client
+		update.ID = clientID
+		if update.MAC == "" {
+			update.MAC = clients[idx].MAC
+		}
+		if update.Name == "" {
+			update.Name = clients[idx].Name
+		}
+		m.clients[siteID][idx] = update
+		json.NewEncoder(w).Encode(update)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}

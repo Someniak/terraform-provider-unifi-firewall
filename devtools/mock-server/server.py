@@ -58,6 +58,14 @@ networks: dict[str, list[dict]] = {
 fw_policies: dict[str, list[dict]] = {"site-default": []}
 dns_policies: dict[str, list[dict]] = {"site-default": []}
 
+clients: dict[str, list[dict]] = {
+    "site-default": [
+        {"id": "client-1", "mac": "00:11:22:33:44:55", "name": "server1", "use_fixedip": False, "network_id": "", "fixed_ip": ""},
+        {"id": "client-2", "mac": "aa:bb:cc:dd:ee:ff", "name": "laptop1", "use_fixedip": False, "network_id": "", "fixed_ip": ""},
+        {"id": "client-3", "mac": "11:22:33:44:55:66", "name": "printer", "use_fixedip": False, "network_id": "", "fixed_ip": ""},
+    ],
+}
+
 # ---------------------------------------------------------------------------
 # Event log + SSE for live dashboard
 # ---------------------------------------------------------------------------
@@ -103,12 +111,14 @@ def build_snapshot() -> dict:
             "networks": {k: v[:] for k, v in networks.items()},
             "fw_policies": {k: v[:] for k, v in fw_policies.items()},
             "dns_policies": {k: v[:] for k, v in dns_policies.items()},
+            "clients": {k: v[:] for k, v in clients.items()},
             "events": event_log[-50:],
             "stats": {
                 "total_fw_policies": sum(len(v) for v in fw_policies.values()),
                 "total_dns_policies": sum(len(v) for v in dns_policies.values()),
                 "total_zones": sum(len(v) for v in zones.values()),
                 "total_networks": sum(len(v) for v in networks.values()),
+                "total_clients": sum(len(v) for v in clients.values()),
             },
         }
 
@@ -388,6 +398,39 @@ def delete_dns_policy(site_id, policy_id):
                 log_event("DELETE", "dns_policy", policy_id)
                 return "", 204
     return error_response(404, "not_found", f"DNS policy '{policy_id}' not found")
+
+
+# Clients (for fixed IP / DHCP reservations)
+@app.route("/v1/sites/<site_id>/clients", methods=["GET"])
+def list_clients(site_id):
+    log_event("LIST", "client", "*", f"site={site_id}")
+    with lock:
+        items = clients.get(site_id, [])
+        return make_list_response(items)
+
+
+@app.route("/v1/sites/<site_id>/clients/<client_id>", methods=["GET"])
+def get_client(site_id, client_id):
+    log_event("READ", "client", client_id)
+    with lock:
+        for c in clients.get(site_id, []):
+            if c["id"] == client_id:
+                return jsonify(c)
+    return error_response(404, "not_found", f"Client '{client_id}' not found")
+
+
+@app.route("/v1/sites/<site_id>/clients/<client_id>", methods=["PUT"])
+def update_client(site_id, client_id):
+    data = request.get_json()
+    with lock:
+        site_clients = clients.get(site_id, [])
+        for i, c in enumerate(site_clients):
+            if c["id"] == client_id:
+                c.update(data)
+                c["id"] = client_id  # preserve ID
+                log_event("UPDATE", "client", client_id, f"fixedip={c.get('use_fixedip', False)}")
+                return jsonify(c)
+    return error_response(404, "not_found", f"Client '{client_id}' not found")
 
 
 # Firewall Policy Ordering (stub)
