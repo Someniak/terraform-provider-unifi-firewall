@@ -39,10 +39,10 @@ sites = [
 # All keyed by site_id
 zones: dict[str, list[dict]] = {
     "site-default": [
-        {"id": "zone-lan", "name": "LAN", "networkIds": ["net-1"]},
-        {"id": "zone-wan", "name": "WAN", "networkIds": ["net-2"]},
-        {"id": "zone-guest", "name": "Guest", "networkIds": ["net-3"]},
-        {"id": "zone-dmz", "name": "DMZ", "networkIds": []},
+        {"id": "zone-lan", "name": "Internal", "networkIds": ["net-1"]},
+        {"id": "zone-wan", "name": "External", "networkIds": ["net-2"]},
+        {"id": "zone-guest", "name": "Hotspot", "networkIds": ["net-3"]},
+        {"id": "zone-iot", "name": "IoT", "networkIds": ["net-4"]},
     ],
 }
 
@@ -51,6 +51,7 @@ networks: dict[str, list[dict]] = {
         {"id": "net-1", "name": "Default", "vlanId": 1, "management": "GATEWAY"},
         {"id": "net-2", "name": "WAN", "vlanId": 0, "management": "GATEWAY"},
         {"id": "net-3", "name": "Guest", "vlanId": 100, "management": "GATEWAY"},
+        {"id": "net-4", "name": "IoT", "vlanId": 200, "management": "GATEWAY"},
     ],
 }
 
