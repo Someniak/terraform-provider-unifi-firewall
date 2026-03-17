@@ -384,10 +384,141 @@ resource "unifi_fw" "limit_iot_server_access" {
   logging_enabled = true
 }
 
-# Assign a fixed IP (DHCP reservation) to a client device.
-resource "unifi_fixedip" "server" {
-  mac        = "00:11:22:33:44:55"
-  network_id = "net-1"
-  fixed_ip   = "192.168.1.200"
-  name       = "my-server"
+# 13. Reject Action with Description
+# Rejects IoT traffic to Internal with an ICMP unreachable response
+resource "unifi_fw" "reject_iot_to_internal" {
+  name        = "Reject IoT to Internal"
+  description = "Reject IoT devices from accessing internal resources with ICMP unreachable"
+  enabled     = true
+  action {
+    type = "REJECT"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.iot.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.default.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
+}
+
+# 14. Allow Return Traffic
+# Allows Internal to IoT with automatic return traffic tracking
+resource "unifi_fw" "allow_internal_to_iot_return" {
+  name    = "Allow Internal to IoT (Return Traffic)"
+  enabled = true
+  action {
+    type                 = "ALLOW"
+    allow_return_traffic = true
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.default.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.iot.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = false
+}
+
+# 15. Network Filter with Match Opposite (Inverse)
+# Block all source networks EXCEPT TestIoT from reaching IoT zone
+resource "unifi_fw" "block_except_iot_network" {
+  name    = "Block Non-IoT Networks"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.default.id
+    traffic_filter {
+      type = "NETWORK"
+      network_filter {
+        type           = "NETWORKS"
+        match_opposite = true
+        items          = [data.unifi_network.testiot.id]
+      }
+    }
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.iot.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
+}
+
+# 16. IPv4 and IPv6 Dual-Stack Rule
+# Block Guest to DMZ on both IPv4 and IPv6
+resource "unifi_fw" "block_guest_dmz_dualstack" {
+  name    = "Block Guest to DMZ (Dual-Stack)"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.guest.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.dmz.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4_AND_IPV6"
+  }
+  logging_enabled = true
+}
+
+# 17. IPsec Filter
+# Allow only IPsec-encrypted traffic from Internal to External
+resource "unifi_fw" "allow_ipsec_traffic" {
+  name    = "Allow IPsec Encrypted Traffic"
+  enabled = true
+  action {
+    type = "ALLOW"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.default.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.internet.id
+  }
+  ipsec_filter = "MATCH_ENCRYPTED"
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = false
+}
+
+# 18. Schedule with Time Range
+# Block Guest internet access in the evenings (6pm-6am) on weekdays
+resource "unifi_fw" "block_guest_evenings" {
+  name    = "Block Guest Internet (Evenings)"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.guest.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.internet.id
+  }
+  schedule {
+    mode         = "EVERY_WEEK"
+    days_of_week = ["MON", "TUE", "WED", "THU", "FRI"]
+    time_range {
+      start = "18:00"
+      stop  = "06:00"
+    }
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
 }
