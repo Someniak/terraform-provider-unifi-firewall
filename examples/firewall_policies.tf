@@ -522,3 +522,256 @@ resource "unifi_fw" "block_guest_evenings" {
   }
   logging_enabled = true
 }
+
+# 19. EVERY_DAY Schedule Mode
+# Block IoT internet access every day during a time window
+resource "unifi_fw" "block_iot_daily" {
+  name    = "Block IoT Internet (Daily)"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.iot.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.internet.id
+  }
+  schedule {
+    mode = "EVERY_DAY"
+    time_range {
+      start = "22:00"
+      stop  = "06:00"
+    }
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = false
+}
+
+# 20. ONE_TIME_ONLY Schedule Mode
+# Temporary maintenance window block
+resource "unifi_fw" "maintenance_block" {
+  name    = "Maintenance Window Block"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.guest.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.default.id
+  }
+  schedule {
+    mode  = "ONE_TIME_ONLY"
+    start = "2026-04-01T00:00:00"
+    stop  = "2026-04-01T06:00:00"
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
+}
+
+# 21. Connection State: NEW and INVALID
+# Block new and invalid connections from Guest to Internal
+resource "unifi_fw" "block_new_invalid_connections" {
+  name                    = "Block New/Invalid Guest Connections"
+  enabled                 = true
+  connection_state_filter = ["NEW", "INVALID"]
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.guest.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.default.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
+}
+
+# 22. MATCH_NOT_ENCRYPTED IPsec Filter
+# Block unencrypted traffic from Internal to DMZ
+resource "unifi_fw" "block_unencrypted_to_dmz" {
+  name    = "Block Unencrypted to DMZ"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.default.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.dmz.id
+  }
+  ipsec_filter = "MATCH_NOT_ENCRYPTED"
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
+}
+
+# 23. IPv6-Only Rule
+# Block IoT to Internal on IPv6 only
+resource "unifi_fw" "block_iot_internal_ipv6" {
+  name    = "Block IoT to Internal (IPv6)"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.iot.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.default.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV6"
+  }
+  logging_enabled = false
+}
+
+# 24. Disabled Firewall Rule
+# A rule that exists but is intentionally disabled
+resource "unifi_fw" "disabled_rule" {
+  name    = "Disabled Placeholder Rule"
+  enabled = false
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.guest.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.default.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = false
+}
+
+# 25. Port Filter with match_opposite (Inverse Port Match)
+# Block all traffic EXCEPT HTTP/HTTPS from Guest to Internet
+resource "unifi_fw" "block_non_web_guest" {
+  name    = "Block Non-Web Guest Traffic"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.guest.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.internet.id
+    traffic_filter {
+      type = "PORT"
+      port_filter {
+        type           = "PORTS"
+        match_opposite = true
+        items {
+          type  = "PORT_NUMBER"
+          value = 80
+        }
+        items {
+          type  = "PORT_NUMBER"
+          value = 443
+        }
+      }
+    }
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+    protocol_filter {
+      type     = "PROTOCOL"
+      protocol = "tcp"
+    }
+  }
+  logging_enabled = true
+}
+
+# 26. IP Address Filter with match_opposite (Inverse IP Match)
+# Allow only a specific IP to reach IoT zone
+resource "unifi_fw" "block_non_admin_to_iot" {
+  name    = "Block Non-Admin to IoT"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.default.id
+    traffic_filter {
+      type = "IP_ADDRESS"
+      ip_address_filter {
+        type           = "IP_ADDRESSES"
+        match_opposite = true
+        items          = ["192.168.10.100"]
+      }
+    }
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.iot.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
+}
+
+# 27. Protocol Filter with match_opposite
+# Block everything except TCP from IoT to Internet
+resource "unifi_fw" "block_non_tcp_iot" {
+  name    = "Block Non-TCP IoT Traffic"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.iot.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.internet.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+    protocol_filter {
+      type           = "PROTOCOL"
+      protocol       = "tcp"
+      match_opposite = true
+    }
+  }
+  logging_enabled = true
+}
+
+# 28. Destination Network Filter
+# Block traffic to specific destination networks in the DMZ
+resource "unifi_fw" "block_to_dmz_network" {
+  name    = "Block to DMZ Network"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.guest.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.dmz.id
+    traffic_filter {
+      type = "NETWORK"
+      network_filter {
+        type  = "NETWORKS"
+        items = [data.unifi_network.testguest.id]
+      }
+    }
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
+}

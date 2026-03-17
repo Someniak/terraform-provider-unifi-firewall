@@ -65,3 +65,12 @@ resource "unifi_dns" "test_forward_domain" {
   enabled    = true
   ip_address = "10.0.0.53"
 }
+
+# Disabled DNS Policy
+resource "unifi_dns" "test_disabled_record" {
+  type       = "A_RECORD"
+  domain     = "disabled.example.com"
+  enabled    = false
+  ttl        = 300
+  ip_address = "192.168.1.1"
+}
