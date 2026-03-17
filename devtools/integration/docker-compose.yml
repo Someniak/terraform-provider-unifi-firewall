@@ -3,6 +3,9 @@ services:
     image: ghcr.io/lemker/unifi-os-server:latest
     container_name: unifi-os-server
     privileged: true
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     environment:
       - UOS_SYSTEM_IP=localhost
     volumes:

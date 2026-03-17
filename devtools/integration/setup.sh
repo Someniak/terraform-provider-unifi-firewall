@@ -87,41 +87,123 @@ log ""
 wait_for_url "$UNIFI_URL" "UniFi OS Server" 90
 
 # --------------------------------------------------------------------------
-# Step 2: Check if setup wizard is needed
+# Step 2: Run setup wizard (if needed) and log in
 # --------------------------------------------------------------------------
 
-log "Checking if setup wizard has been completed..."
-LOGIN_HEADERS=$(mktemp)
-LOGIN_PAYLOAD=$(mktemp)
-cat > "$LOGIN_PAYLOAD" <<LOGINEOF
+do_login() {
+    local headers
+    headers=$(mktemp)
+    local payload
+    payload=$(mktemp)
+    cat > "$payload" <<LOGINEOF
 {"username":"$ADMIN_USER","password":"$ADMIN_PASS"}
 LOGINEOF
-LOGIN_RESULT=$(curl -ks -X POST -c "$COOKIE_FILE" -b "$COOKIE_FILE" -D "$LOGIN_HEADERS" \
-    -H "Content-Type: application/json" -d @"$LOGIN_PAYLOAD" "${UNIFI_URL}/api/auth/login" 2>&1)
-CSRF_TOKEN=$(grep -i '^x-csrf-token:' "$LOGIN_HEADERS" | tr -d '\r' | awk '{print $2}')
-rm -f "$LOGIN_HEADERS" "$LOGIN_PAYLOAD"
+    LOGIN_RESULT=$(curl -ks -X POST -c "$COOKIE_FILE" -b "$COOKIE_FILE" -D "$headers" \
+        -H "Content-Type: application/json" -d @"$payload" "${UNIFI_URL}/api/auth/login" 2>&1)
+    CSRF_TOKEN=$(grep -i '^x-csrf-token:' "$headers" | tr -d '\r' | awk '{print $2}' || true)
+    rm -f "$headers" "$payload"
+}
+
+log "Checking device state..."
+SYSTEM_INFO=$(curl -ks "${UNIFI_URL}/api/system" 2>/dev/null)
+IS_SETUP=$(echo "$SYSTEM_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('isSetup', False))" 2>/dev/null || echo "False")
+
+DEVICE_STATE=$(echo "$SYSTEM_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('deviceState',''))" 2>/dev/null || true)
+
+if [ "$IS_SETUP" = "False" ] && [ "$DEVICE_STATE" != "setup" ] && [ "$DEVICE_STATE" != "ready" ]; then
+    log "First run detected — running setup wizard via API..."
+
+    # Wait for deviceState to leave "notReady"
+    for i in $(seq 1 60); do
+        STATE=$(curl -ks "${UNIFI_URL}/api/system" 2>/dev/null | \
+            python3 -c "import sys,json; print(json.load(sys.stdin).get('deviceState',''))" 2>/dev/null || true)
+        if [ "$STATE" != "notReady" ] && [ -n "$STATE" ]; then
+            log "  Device state: $STATE"
+            break
+        fi
+        sleep 2
+    done
+
+    # Step 2a: Start setup session
+    log "  Starting setup session..."
+    SETUP_ID=$(curl -ks -X POST -H "Content-Type: application/json" \
+        -d '{"sendTrace":true,"type":"webui"}' \
+        "${UNIFI_URL}/api/setup/start" | \
+        python3 -c "import sys,json; print(json.load(sys.stdin)['setupId'])" 2>/dev/null || true)
+
+    if [ -z "$SETUP_ID" ]; then
+        log "ERROR: Failed to start setup session."
+        exit 1
+    fi
+    log "  Setup ID: $SETUP_ID"
+
+    # Step 2b: Submit setup with local account (no UI cloud account)
+    log "  Submitting setup configuration..."
+    SETUP_PAYLOAD=$(mktemp)
+    cat > "$SETUP_PAYLOAD" <<SETUPEOF
+{"name":"UniFi Test Server","timezone":"UTC","optimizeNetwork":false,"sendDiagnostics":false,"newAccount":true,"advancedSetup":{"mode":"dhcp"},"username":"$ADMIN_USER","password":"$ADMIN_PASS","country":840,"setupId":"$SETUP_ID","raid":"raid5"}
+SETUPEOF
+    SETUP_RESULT=$(curl -ks -X POST -H "Content-Type: application/json" \
+        -d @"$SETUP_PAYLOAD" "${UNIFI_URL}/api/setup" 2>&1)
+    rm -f "$SETUP_PAYLOAD"
+    log "  Setup submitted."
+
+    # Wait for setup to complete (deviceState transitions from "notSetup" to "setup")
+    log "  Waiting for setup to complete..."
+    for i in $(seq 1 120); do
+        STATE=$(curl -ks "${UNIFI_URL}/api/system" 2>/dev/null | \
+            python3 -c "import sys,json; print(json.load(sys.stdin).get('deviceState',''))" 2>/dev/null || true)
+        if [ "$STATE" = "setup" ] || [ "$STATE" = "ready" ]; then
+            log "  Setup complete (state: $STATE)."
+            break
+        fi
+        sleep 5
+    done
+fi
+
+# Log in
+log "Logging in..."
+do_login
 
 if echo "$LOGIN_RESULT" | grep -qE '"unique_id"|"userId"'; then
-    log "Login successful — setup wizard already completed."
+    log "Login successful."
     [ -n "$CSRF_TOKEN" ] && log "CSRF token acquired."
     USER_ID=$(echo "$LOGIN_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['unique_id'])" 2>/dev/null || true)
 else
+    log "ERROR: Login failed after setup. Result: $LOGIN_RESULT"
+    exit 1
+fi
+
+# --------------------------------------------------------------------------
+# Step 2c: Upgrade Network Application (if update available)
+# --------------------------------------------------------------------------
+
+# Get current Network Application version
+CURRENT_NET_VERSION=$(curl -ks -b "$COOKIE_FILE" -H "X-CSRF-Token: $CSRF_TOKEN" \
+    "${UNIFI_URL}/proxy/network/v2/api/info" 2>/dev/null | \
+    python3 -c "import sys,json; print(json.load(sys.stdin).get('system',{}).get('version',''))" 2>/dev/null || true)
+log "Current Network Application version: ${CURRENT_NET_VERSION:-unknown}"
+
+# The zone-based firewall API requires Network Application >= 10.x.
+# The UOS update mechanism requires WebSocket state that can't be driven from curl,
+# so the user must trigger the upgrade manually via the browser.
+NETWORK_MIN_VERSION="10"
+NETWORK_MAJOR=$(echo "$CURRENT_NET_VERSION" | cut -d. -f1)
+
+if [ -n "$NETWORK_MAJOR" ] && [ "$NETWORK_MAJOR" -lt "$NETWORK_MIN_VERSION" ] 2>/dev/null; then
     log ""
     log "============================================================"
-    log "  FIRST RUN: Complete the setup wizard"
+    log "  ACTION REQUIRED: Upgrade Network Application"
     log "============================================================"
     log ""
-    log "  1. Open $UNIFI_URL in your browser"
+    log "  Current version: $CURRENT_NET_VERSION (need >= $NETWORK_MIN_VERSION.x)"
+    log ""
+    log "  1. Open $UNIFI_URL/settings/updates in your browser"
     log "     (accept the self-signed certificate warning)"
-    log ""
-    log "  2. Create a local admin account:"
-    log "     Username: $ADMIN_USER"
-    log "     Password: $ADMIN_PASS"
-    log ""
-    log "  3. Skip the Ubiquiti cloud sign-in (use offline mode)"
-    log ""
-    log "  4. After setup completes, re-run:"
-    log "     make integration-up"
+    log "  2. Log in with: $ADMIN_USER / $ADMIN_PASS"
+    log "  3. Click 'Update to ...' next to Network"
+    log "  4. Click 'Proceed' and wait for the upgrade to complete"
+    log "  5. Re-run: make integration-up"
     log ""
     log "============================================================"
     exit 0
