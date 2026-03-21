@@ -143,6 +143,7 @@ func (p *UnifiProvider) Resources(ctx context.Context) []func() resource.Resourc
 	return []func() resource.Resource{
 		firewall.NewFirewallPolicyResource,
 		firewall.NewFirewallPolicyOrderingResource,
+		firewall.NewFirewallZoneResource,
 		firewall.NewDNSPolicyResource,
 		fixedip.NewFixedIPResource,
 	}
