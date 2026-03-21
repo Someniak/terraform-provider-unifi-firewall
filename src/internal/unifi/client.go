@@ -1031,6 +1031,104 @@ func (c *Client) UpdateACLRuleOrdering(ordering ACLRuleOrdering) ([]string, erro
 	return result, nil
 }
 
+// Traffic Matching Lists
+type TrafficMatchingList struct {
+	ID   string `json:"id,omitempty"`
+	Type string `json:"type"` // PORTS, IPV4_ADDRESSES, IPV6_ADDRESSES
+	Name string `json:"name"`
+}
+
+func (c *Client) ListTrafficMatchingLists() ([]TrafficMatchingList, error) {
+	var allLists []TrafficMatchingList
+	offset := 0
+	const pageSize = 200
+
+	for {
+		url := fmt.Sprintf("%s/v1/sites/%s/traffic-matching-lists?limit=%d&offset=%d", c.BaseURL, c.SiteID, pageSize, offset)
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+		body, err := c.doRequest(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var response struct {
+			Data []TrafficMatchingList `json:"data"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal traffic matching lists: %w. response body: %s", err, string(body))
+		}
+
+		allLists = append(allLists, response.Data...)
+		if len(response.Data) < pageSize {
+			break
+		}
+		offset += pageSize
+	}
+
+	return allLists, nil
+}
+
+func (c *Client) GetTrafficMatchingList(listID string) (*TrafficMatchingList, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/traffic-matching-lists/%s", c.BaseURL, c.SiteID, listID)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result TrafficMatchingList
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) CreateTrafficMatchingList(list TrafficMatchingList) (*TrafficMatchingList, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/traffic-matching-lists", c.BaseURL, c.SiteID)
+	payload, _ := json.Marshal(list)
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result TrafficMatchingList
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) UpdateTrafficMatchingList(listID string, list TrafficMatchingList) (*TrafficMatchingList, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/traffic-matching-lists/%s", c.BaseURL, c.SiteID, listID)
+	payload, _ := json.Marshal(list)
+	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result TrafficMatchingList
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) DeleteTrafficMatchingList(listID string) error {
+	url := fmt.Sprintf("%s/v1/sites/%s/traffic-matching-lists/%s", c.BaseURL, c.SiteID, listID)
+	req, _ := http.NewRequest(http.MethodDelete, url, nil)
+	_, err := c.doRequest(req)
+	return err
+}
+
 // Client Devices (for fixed IP / DHCP reservations)
 //
 // Client operations use the legacy REST API (/api/s/{site}/rest/user) instead
