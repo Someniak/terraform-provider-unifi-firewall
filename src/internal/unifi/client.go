@@ -508,6 +508,71 @@ func (c *Client) DeleteFirewallPolicy(policyId string) error {
 	return err
 }
 
+// PatchFirewallPolicy partially updates a firewall policy (currently only loggingEnabled).
+func (c *Client) PatchFirewallPolicy(policyId string, patch FirewallPolicyPatch) (*FirewallPolicy, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies/%s", c.BaseURL, c.SiteID, policyId)
+	payload, _ := json.Marshal(patch)
+	req, _ := http.NewRequest(http.MethodPatch, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result FirewallPolicy
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	c.invalidateFWPolicyCache()
+	return &result, nil
+}
+
+type FirewallPolicyPatch struct {
+	LoggingEnabled *bool `json:"loggingEnabled,omitempty"`
+}
+
+// Firewall Policy Ordering
+type FirewallPolicyOrdering struct {
+	PolicyIDs []string `json:"policyIds"`
+}
+
+func (c *Client) GetFirewallPolicyOrdering() ([]string, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies/ordering", c.BaseURL, c.SiteID)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []string
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal policy ordering: %w. response body: %s", err, string(body))
+	}
+
+	return result, nil
+}
+
+func (c *Client) UpdateFirewallPolicyOrdering(ordering FirewallPolicyOrdering) ([]string, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies/ordering", c.BaseURL, c.SiteID)
+	payload, _ := json.Marshal(ordering)
+	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []string
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal policy ordering: %w. response body: %s", err, string(body))
+	}
+
+	c.invalidateFWPolicyCache()
+	return result, nil
+}
+
 // Networks
 type Network struct {
 	ID         string `json:"id"`

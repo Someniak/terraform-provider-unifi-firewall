@@ -142,6 +142,7 @@ func (p *UnifiProvider) Configure(ctx context.Context, req provider.ConfigureReq
 func (p *UnifiProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		firewall.NewFirewallPolicyResource,
+		firewall.NewFirewallPolicyOrderingResource,
 		firewall.NewDNSPolicyResource,
 		fixedip.NewFixedIPResource,
 	}
